@@ -2731,7 +2731,7 @@ sub GetCuratorsForPathway {
 }
 
 sub MolSearch {
-  my ($self, $db, $schema, $terms, $source_spec, $evidence_spec) = @_;
+  my ($self, $db, $schema, $transcriptionflag, $terms, $source_spec, $evidence_spec) = @_;
 
   my $lv = $self->{lv};
   my $pw = $self->{pw};
@@ -2817,7 +2817,22 @@ sub MolSearch {
     $stm->finish();
 
   } 
-  
+ 
+# Get interactions
+
+my $transcriptionsql = '';
+my $transcriptiontable = '';
+
+if ($transcriptionflag == 1) {
+  $transcriptionsql = qq!
+  and al.atom_id = e1.atom_id
+  and al.label_value_id = 42
+
+!;
+
+ $transcriptiontable = "$schema.pw_atom_label al,";
+}
+ 
   $sql = qq!
 select
   x.xml, x.id
@@ -2832,12 +2847,14 @@ from
   $schema.pw_edge e1,
   $schema.pw_mol_mol mm_outer_family,
   $schema.pw_mol_mol mm_inner_family,
+  $transcriptiontable 
   $schema.pw_mol_mol mm_complex
 where
       mm_inner_family.mol_id_2 = mm_complex.mol_id_2
   and mm_complex.mol_id_1 = mm_outer_family.mol_id_1
   and e1.mol_id = mm_outer_family.mol_id_1
   and mm_complex.relation in ('c','i')
+  $transcriptionsql 
   and mm_outer_family.relation in ('s','m','i')
   and mm_inner_family.relation in ('s','m','i')
   and mm_outer_family.mol_id_1 = ? 
@@ -2886,6 +2903,7 @@ where
 from
   $schema.pw_edge e1,
   $schema.pw_mol_mol mm_outer_family,
+  $transcriptiontable 
   $schema.pw_mol_mol mm_inner_family,
   $schema.pw_mol_mol mm_complex
 where
@@ -2893,6 +2911,7 @@ where
   and mm_complex.mol_id_1 = mm_outer_family.mol_id_1
   and mm_complex.relation in ('c','i')
   and mm_inner_family.mol_id_2 = e1.mol_id
+  $transcriptionsql
   and mm_outer_family.relation in ('s','m','i')
   and mm_inner_family.relation in ('s','m','i')
   and e1.atom_id = ?

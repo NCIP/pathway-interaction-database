@@ -14,6 +14,10 @@ use PathwayDB;
 use PathParams;
 use PWLabel;
 use PathwayGene;
+use FileHandle;
+use DOT;
+use Math::Trig;
+use DBI;
 
 use constant MAX_LONG_LEN       => 16384;
 
@@ -50,6 +54,37 @@ my $lv;
 my %mol2atom;
 my %atom2atom;
 my %cx2cp;
+
+## dot2xaml constants
+my $tangent = tan(deg2rad(60));
+my $canvas_n = 0;
+my $molCount = 0;
+my $keyCount = 1;
+
+my $PIX_PER_INCH = 72;
+my $ROUND_CORNER_CLIP = 12;
+my $HALF_CORNER_CLIP  = 6;
+
+my %TEXT_LINE_INC_Y = (
+  "10" => 8
+);
+my %TEXT_LINE_HEAD_ROOM = (
+  "10" => 13
+);
+my %TEXT_LINE_FOOT_ROOM = (
+  "10" => 7
+);
+
+my %hex_color = (
+  "black"     => "000000",
+  "white"     => "ffffff",
+  "red"       => "ff0000",
+  "green"     => "00ff00",
+  "blue"      => "0000ff",
+  "firebrick" => "b22222",
+  "lightgray" => "736F6E"
+);
+
 
 ######################################################################
 sub r_numerically { $b <=> $a };
@@ -988,14 +1023,21 @@ sub NetworkHeader_1 {
 
   push @lines, "<li><a class=\"button-style\" href=\"/search/network_landing.shtml" .
        "?molecule=$moleculeName" . "&macro_process=$macroprocess" . "&source_id=$source_id" . "&what=graphic&svg=on&ppage=1\">SVG</a></li>";
+  
+  push @lines, "<li><a class=\"button-style\" href=\"/xaml_net_landing.shtml" .
+       "?molecule=$moleculeName" . "&macro_process=$macroprocess" . "&source_id=$source_id" . "&source=NATURE" . "&what=graphic&xaml=on\">Silverlight-beta</a></li>";
+
   push @lines, "<li><div class=\"helpbox\">";
   push @lines, "<a href=\"#\" class=\"help\">Graphics help</a>";
   push @lines, "<div class=\"description\">";
-  push @lines, "<h2 class=\"title\">Options for the type of output</h2>";
-  push @lines, "<p class=\"norm\">You can view the pathway as either a JPG or SVG image. All biomolecules and interactions in the SVG and JPG formats are interactive; clicking on them will open information windows.</p>";
+  push @lines, "<h2 class=\"title\">Information on graphics types</h2>";
+  push @lines, "<p class=\"norm\">The pathway can be viewed as a JPG, SVG or Silverlight image. All molecules and interactions within the graphics formats are interactive; clicking on them will open information windows.</p>";
   push @lines, "<p class=\"norm\"><B>JPG:</b>  All common web browsers are able to display JPG images.  However, please note that some browsers may not support very large JPG files.</p>";
   push @lines, "<p class=\"norm\"><B>SVG:</b>  The advantage of SVG images is that they can be more easily zoomed and panned on-screen.  If your browser is not completely SVG enabled, please visit the <a href=\"/PID/userguide/output_formats.shtml\">User guide</a> and follow the instructions for installing the SVG plug-in specific to your browser</p>";
   push @lines, "<p class=\"norm\"><b>SVG image navigation:</b>  Use the left mouse button to activate the image.  To <b>zoom</b> in or out, use the right mouse button and select from the options on the pop-up menu.  To <b>pan</b> the image, hold down the alt key and click-and-drag the image with the mouse.</p>";
+  push @lines, "<p class=\"norm\"><b>Silverlight:  </b>Please visit http://www.microsoft.com/getsilverlight/Get-Started/Install/Default.aspx to install the plug-in for your browser.</p>";
+  push @lines, "<p class=\"norm\"><b>Silverlight image navigation:  Zoom</b> is available at the top-left of the image. To <b>pan</b> merely drag the image with the mouse.  In the image you may search for specific molecules or all molecules at a certain subcellular location.  To search for molecules you may enter their names, Entrez Gene identifiers or UniProt accession numbers.</p>";
+
   push @lines, "</div>";
   push @lines, "</div>";
   push @lines, "</li>";
@@ -1012,7 +1054,7 @@ sub NetworkHeader_1 {
   push @lines, "<li><div class=\"helpbox\">";
   push @lines, "<a href=\"#\" class=\"help\">Code help</a>";
   push @lines, "<div class=\"description\">";
-  push @lines, "<h2 class=\"title\">Code options for the type of output</h2>";
+  push @lines, "<h2 class=\"title\">Information on types of pathway code</h2>";
   push @lines, "<p class=\"norm\">You can view the pathway code in either XML or BioPax formats.  Please see the <a href=\"/PID/userguide/output_formats.shtml\">User guide</a> for more information.</p>";
   push @lines, "</div>";
   push @lines, "</div>";
@@ -1131,7 +1173,8 @@ from
   $schema.pw_pathway p1,
   $schema.pw_pathway p2,
   $schema.pw_abstraction a,
-  $schema.pw_pathway_atom pa
+  $schema.pw_pathway_atom pa,
+  $schema.pw_subnet s
 where
   pa.pathway_id = p2.pathway_id
   and pa.atom_id = a.atom_id
@@ -1139,6 +1182,8 @@ where
   and (a.pathway_id = p1.pathway_id or a.ext_pathway_id = p1.ext_pathway_id)
   and p1.pathway_id = $pid
   and p1.subnet = 'Y'
+  and s.subnet_pathway_id = p1.pathway_id
+  and p2.pathway_id = s.parent_pathway_id
 !;
   my $stmsub = $db->prepare($sqlsub);
   if (not $stmsub) {
@@ -1234,14 +1279,20 @@ where
 
   push @lines, "<li><a class=\"button-style\" href=\"/search/batch_landing.shtml" .
        "?pathway_id=$pid" . "&source=$source" . "&what=graphic&svg=on&ppage=1&genes_a=$genes_a&genes_b=$genes_b\">SVG</a></li>";
+
+   push @lines, "<li><a class=\"button-style\" href=\"/search/xaml_batch_landing.shtml" .
+          "?pathway_id=$pid" . "&source=$source" . "&what=graphic&xaml=on&genes_a=$genes_a&genes_b=$genes_b\">Silverlight-beta</a></li>" ;
+
   push @lines, "<li><div class=\"helpbox\">";
   push @lines, "<a href=\"#\" class=\"help\">Help</a>";
   push @lines, "<div class=\"description\">";
-  push @lines, "<h2 class=\"title\">Options for the type of output</h2>";
-  push @lines, "<p class=\"norm\">You can view the pathway as either a JPG or SVG image. All biomolecules and interactions in the SVG and JPG formats are interactive; clicking on them will open information windows.</p>";
+  push @lines, "<h2 class=\"title\">Information on graphics types</h2>";
+  push @lines, "<p class=\"norm\">The pathway can be viewed as a JPG, SVG or Silverlight image. All molecules and interactions within the graphics formats are interactive; clicking on them will open information windows.</p>";
   push @lines, "<p class=\"norm\"><B>JPG:</b>  All common web browsers are able to display JPG images.  However, please note that some browsers may not support very large JPG files.</p>";
   push @lines, "<p class=\"norm\"><B>SVG:</b>  The advantage of SVG images is that they can be more easily zoomed and panned on-screen.  If your browser is not completely SVG enabled, please visit the <a href=\"/PID/userguide/output_formats.shtml\">User guide</a> and follow the instructions for installing the SVG plug-in specific to your browser</p>";
   push @lines, "<p class=\"norm\"><b>SVG image navigation:</b>  Use the left mouse button to activate the image.  To <b>zoom</b> in or out, use the right mouse button and select from the options on the pop-up menu.  To <b>pan</b> the image, hold down the alt key and click-and-drag the image with the mouse.</p>";
+  push @lines, "<p class=\"norm\"><b>Silverlight:  </b>Please visit http://www.microsoft.com/getsilverlight/Get-Started/Install/Default.aspx to install the plug-in for your browser.</p>";
+  push @lines, "<p class=\"norm\"><b>Silverlight image navigation:  Zoom</b> is available at the top-left of the image. To <b>pan</b> merely drag the image with the mouse.  In the image you may search for specific molecules or all molecules at a certain subcellular location.  To search for molecules you may enter their names, Entrez Gene identifiers or UniProt accession numbers.</p>";
   push @lines, "</div>";
   push @lines, "</div>";
   push @lines, "</li>";
@@ -1258,7 +1309,7 @@ where
   push @lines, "<a href=\"#\" class=\"help\">Help</a>";
   push @lines, "<div class=\"description\">";
 
-  push @lines, "<h2 class=\"title\">Code options for the type of output</h2>";
+  push @lines, "<h2 class=\"title\">Information on types of pathway code</h2>";
   push @lines, "<p class=\"norm\">You can view the pathway code in either XML or BioPax formats.  Please see the <a href=\"/PID/userguide/output_formats.shtml\">User guide</a> for more information.</p>";
   push @lines, "</div>";
   push @lines, "</div>";
@@ -1301,7 +1352,8 @@ where
   push @lines, "<p class=\"norm\">Molecules from Group 2 are shown in <span class=\"red\">red</span></p>";
   push @lines, "<p class=\"norm\">Molecules from both groups are shown in <span class=\"purple\">purple</span></p>";
   push @lines, "</div>";
-  
+ 
+  print STDERR "PID before CreateGraphic:  $pid\n"; 
   push @lines, CreateGraphicFile($db, $schema, $pid, $source, $mols_a, $mols_b, $format);
   $db->disconnect();
   return join("\n", @lines) . "\n";
@@ -1340,14 +1392,20 @@ push @lines, "<li><span class=\"norm\">View graphic as:</span>";
 
   push @lines, "<li><a class=\"button-style\" href=\"/search/connectedmolecules_landing.shtml" .
        "?connect_molecule=$moleculeName" . "&source_id=$source_id" . "&what=graphic&svg=on&ppage=1\">SVG</a></li>";
+ 
+  push @lines, "<li><a class=\"button-style\" href=\"/search/xaml_conn_landing.shtml" .
+          "?connect_molecule=$moleculeName" . "&source_id=$source_id" . "&source=NATURE" . "&what=graphic&xaml=on\">Silverlight-beta</a></li>" ;
+
   push @lines, "<li><div class=\"helpbox\">";
   push @lines, "<a href=\"#\" class=\"help\">Graphics help</a>";
   push @lines, "<div class=\"description\">";
-  push @lines, "<h2 class=\"title\">Options for the type of output</h2>";
-  push @lines, "<p class=\"norm\">You can view the pathway as either a JPG or SVG image. All biomolecules and interactions in the SVG and JPG formats are interactive; clicking on them will open information windows.</p>";
+  push @lines, "<h2 class=\"title\">Information on graphics types</h2>";
+  push @lines, "<p class=\"norm\">The pathway can be viewed as a JPG, SVG or Silverlight image. All molecules and interactions within the graphics formats are interactive; clicking on them will open information windows.</p>";
   push @lines, "<p class=\"norm\"><B>JPG:</b>  All common web browsers are able to display JPG images.  However, please note that some browsers may not support very large JPG files.</p>";
   push @lines, "<p class=\"norm\"><B>SVG:</b>  The advantage of SVG images is that they can be more easily zoomed and panned on-screen.  If your browser is not completely SVG enabled, please visit the <a href=\"/PID/userguide/output_formats.shtml\">User guide</a> and follow the instructions for installing the SVG plug-in specific to your browser</p>";
   push @lines, "<p class=\"norm\"><b>SVG image navigation:</b>  Use the left mouse button to activate the image.  To <b>zoom</b> in or out, use the right mouse button and select from the options on the pop-up menu.  To <b>pan</b> the image, hold down the alt key and click-and-drag the image with the mouse.</p>";
+  push @lines, "<p class=\"norm\"><b>Silverlight:  </b>Please visit http://www.microsoft.com/getsilverlight/Get-Started/Install/Default.aspx to install the plug-in for your browser.</p>";
+  push @lines, "<p class=\"norm\"><b>Silverlight image navigation:  Zoom</b> is available at the top-left of the image. To <b>pan</b> merely drag the image with the mouse.  In the image you may search for specific molecules or all molecules at a certain subcellular location.  To search for molecules you may enter their names, Entrez Gene identifiers or UniProt accession numbers.</p>";
   push @lines, "</div>";
   push @lines, "</div>";
   push @lines, "</li>";
@@ -1363,7 +1421,7 @@ push @lines, "<li><span class=\"norm\">View graphic as:</span>";
   push @lines, "<li><div class=\"helpbox\">";
   push @lines, "<a href=\"#\" class=\"help\">Code help</a>";
   push @lines, "<div class=\"description\">";
-  push @lines, "<h2 class=\"title\">Code options for the type of output</h2>";
+  push @lines, "<h2 class=\"title\">Information on types of pathway code</h2>";
   push @lines, "<p class=\"norm\">You can view the pathway code in either XML or BioPax formats.  Please see the <a href=\"/PID/userguide/output_formats.shtml\">User guide</a> for more information.</p>";
   push @lines, "</div>";
   push @lines, "</div>";
@@ -1387,7 +1445,7 @@ push @lines, "<li><span class=\"norm\">View graphic as:</span>";
 
 ###############################################################
 sub AdvancedHeader_1 {
-  my ($base, $moleculeName, $macroprocess, $source_id, $evidence_code, $format) = @_;
+  my ($base, $moleculeName, $macroprocess, $source_id, $evidence_code, $forward, $back, $format) = @_;
 
   $BASE = $base;
 
@@ -1404,7 +1462,7 @@ sub AdvancedHeader_1 {
   $found = 0;
   $moleculeName = lc $moleculeName;
 
-  my $db = DBI->connect("DBI:Oracle:" . "cgdev",
+  my $db = DBI->connect("DBI:Oracle:" . "cgprod",
         "web", "readonly");
   if (not $db or $db->err()) {
     print STDERR "#! Cannot connect to " . $db_user . "@" .
@@ -1471,18 +1529,52 @@ and ms.mol_id = mn.mol_id
   push @lines, "<ul class=\"links\">";
  push @lines, "<li><a class=\"button-style\" href=\"/search/advanced_landing.shtml" .
 
-          "?molecule=$moleculeName"  . "&pathway=$pid" . "&macro_process=$macroprocess" . "&source_id=$source_id" . "&what=graphic&jpg=on&ppage=1\">JPG</a></li>" ;
+          "?molecule=$moleculeName"  . "&pathway=$pid" . "&macro_process=$macroprocess" . "&source_id=$source_id" . "&forward=$forward" . "&back=$back" . "&what=graphic&jpg=true&complex_uses=on&family_uses=on&degree=1&ppage=1\">JPG</a></li>" ;
 
   push @lines, "<li><a class=\"button-style\" href=\"/search/advanced_landing.shtml" .
-       "?molecule=$moleculeName"  . "&pathway=$pid" . "&macro_process=$macroprocess" . "&source_id=$source_id" . "&what=graphic&svg=on&ppage=1\">SVG</a></li>";
+       "?molecule=$moleculeName"  . "&pathway=$pid" . "&macro_process=$macroprocess" . "&source_id=$source_id" . "&forward=$forward" . "&back=$back" . "&what=graphic&svg=on&complex_uses=on&family_uses=on&degree=1&ppage=1\">SVG</a></li>";
+
+  $source="NATURE";
+  if (($source_id == 2) || ($source_id == 3)) {
+    $source="BioCarta";
+  }
+
+  if ($source_id == 7) {
+    $source="Reactome";
+  } 
+
+  my $forward_clause = '';
+
+  if ($forward eq 'forward') {
+    $forward_clause = "&forward=forward";
+  }
+  
+  if ($back eq 'back') {
+    $forward_clause = "&back=back";
+  }
+
+  if (($forward eq 'forward') && ($back eq 'back')) {
+    $forward_clause = "&forward=forward&back=back";
+  }
+
+ 
+  push @lines, "<li><a class=\"button-style\" href=\"/xaml_adv_landing.shtml" .
+       "?what=graphic&svg=&xaml=true&xml=&biopax=&complex_uses=on&family_uses=on&degree=1" .
+       "&molecule=$moleculeName" . "&pathway=$pid" . "&macro_process=$macroprocess" . "&source_id=$source_id" .
+       "$forward_clause" .
+       "&evidence_code=NIL&evidence_code=IAE&evidence_code=IC&evidence_code=IDA&evidence_code=IFC&evidence_code=IGI&evidence_code=IMP&evidence_code=IOS&evidence_code=IPI&evidence_code=RCA&evidence_code=RGE&evidence_code=TAS&output-format=graphic&source=$source&Submit=Go\">Silverlight-Beta</a></li>";
+
+
   push @lines, "<li><div class=\"helpbox\">";
   push @lines, "<a href=\"#\" class=\"help\">Graphics help</a>";
   push @lines, "<div class=\"description\">";
-  push @lines, "<h2 class=\"title\">Options for the type of output</h2>";
-  push @lines, "<p class=\"norm\">You can view the pathway as either a JPG or SVG image. All biomolecules and interactions in the SVG and JPG formats are interactive; clicking on them will open information windows.</p>";
+  push @lines, "<h2 class=\"title\">Information on graphics types</h2>";
+  push @lines, "<p class=\"norm\">The pathway can be viewed as a JPG, SVG or Silverlight image. All molecules and interactions within the graphics formats are interactive; clicking on them will open information windows.</p>";
   push @lines, "<p class=\"norm\"><B>JPG:</b>  All common web browsers are able to display JPG images.  However, please note that some browsers may not support very large JPG files.</p>";
   push @lines, "<p class=\"norm\"><B>SVG:</b>  The advantage of SVG images is that they can be more easily zoomed and panned on-screen.  If your browser is not completely SVG enabled, please visit the <a href=\"/PID/userguide/output_formats.shtml\">User guide</a> and follow the instructions for installing the SVG plug-in specific to your browser</p>";
   push @lines, "<p class=\"norm\"><b>SVG image navigation:</b>  Use the left mouse button to activate the image.  To <b>zoom</b> in or out, use the right mouse button and select from the options on the pop-up menu.  To <b>pan</b> the image, hold down the alt key and click-and-drag the image with the mouse.</p>";
+  push @lines, "<p class=\"norm\"><b>Silverlight:  </b>Please visit http://www.microsoft.com/getsilverlight/Get-Started/Install/Default.aspx to install the plug-in for your browser.</p>";
+  push @lines, "<p class=\"norm\"><b>Silverlight image navigation:  Zoom</b> is available at the top-left of the image. To <b>pan</b> merely drag the image with the mouse.  In the image you may search for specific molecules or all molecules at a certain subcellular location.  To search for molecules you may enter their names, Entrez Gene identifiers or UniProt accession numbers.</p>";
   push @lines, "</div>";
   push @lines, "</div>";
   push @lines, "</li>"; 
@@ -1493,13 +1585,13 @@ and ms.mol_id = mn.mol_id
   push @lines, "<ul class=\"links\">";
 
    push @lines, "<li><a class=\"button-style\" href=\"/search/advanced_landing.shtml" .
-          "?molecule=$moleculeName"  . "&pathway=$pid" . "&macro_process=$macroprocess" . "&source_id=$source_id" . "&what=text&xml=on&ppage=1\">XML</a></li>" ;
+          "?molecule=$moleculeName"  . "&pathway=$pid" . "&macro_process=$macroprocess" . "&source_id=$source_id" . "&forward=$forward" . "&back=$back" . "&what=text&xml=on&complex_uses=on&family_uses=on&degree=1&ppage=1\">XML</a></li>" ;
   push @lines, "<li><a class=\"button-style\" href=\"/search/advanced_landing.shtml" .
-       "?molecule=$moleculeName"  . "&pathway=$pid" . "&macro_process=$macroprocess" . "&source_id=$source_id" . "&what=text&biopax=on&ppage=1\">BioPAX</a></li>";
+       "?molecule=$moleculeName"  . "&pathway=$pid" . "&macro_process=$macroprocess" . "&source_id=$source_id" . "&forward=$forward" . "&back=$back" . "&what=text&biopax=on&complex_uses=on&family_uses=on&degree=1&ppage=1\">BioPAX</a></li>";
   push @lines, "<li><div class=\"helpbox\">";
   push @lines, "<a href=\"#\" class=\"help\">Code help</a>";
   push @lines, "<div class=\"description\">";
-  push @lines, "<h2 class=\"title\">Code options for the type of output</h2>";
+  push @lines, "<h2 class=\"title\">Information on types of pathway code</h2>";
   push @lines, "<p class=\"norm\">You can view the pathway code in either XML or BioPax formats.  Please see the <a href=\"/PID/userguide/output_formats.shtml\">User guide</a> for more information.</p>";
   push @lines, "</div>";
   push @lines, "</div>";
@@ -1561,7 +1653,7 @@ sub InteractionHeader_1 {
       "&nbsp;&nbsp;<li><a href=\"/search/interaction_landing.shtml" .
       "?atom_id=$atomid" . "&what=text&biopax=on\">BioPAX</a></li>";
 
-  push @lines , "<form name=\"dpform\" action=\"/search/search_landing.shtml\" method=\"get\" id=\"advancedsearch\">";
+  push @lines , "<form name=\"dpform\" action=\"/search/interaction_landing.shtml\" method=\"get\" id=\"advancedsearch\">";
   push @lines , "<input id=what type=\"hidden\" name=\"what\" value=\"graphic\"/> ";
   push @lines , "<input id=svg type=hidden name=svg value=true> ";
   push @lines , "<input id=jpg type=hidden name=jpg value=\"\"> ";
@@ -1580,22 +1672,27 @@ sub InteractionHeader_1 {
   push @lines , "<label for=\"downstream\">Downstream</label> ";
 push @lines , "<span class=\"label1\">";
   push @lines , "<br><br><input id=svg2 name=output-format value=SVG type=submit class=submit checked=checked set what=graphic ";
-  push @lines , "onclick=\"dpform.what.value='graphic';dpform.svg.value=true;dpform.jpg.value='';dpform.xml.value='';dpform.biopax.value=''\"/> ";
+  push @lines , "onclick=\"dpform.what.value='graphic';dpform.svg.value=true;dpform.jpg.value='';dpform.xml.value='';dpform.biopax.value=''dpform.xaml.value=''\"/> ";
   push @lines , "</span>";
 
   push @lines , "<span class=\"label1\">";
   push @lines , "<input id=jpg2 name=output-format value=JPG type=submit class=submit set what=graphic ";
-  push @lines , "onclick=\"dpform.what.value='graphic';dpform.svg.value='';dpform.jpg.value=true;dpform.xml.value='';dpform.biopax.value=''\"/> ";
+  push @lines , "onclick=\"dpform.what.value='graphic';dpform.svg.value='';dpform.jpg.value=true;dpform.xml.value='';dpform.biopax.value=''dpform.xaml.value=''\"/> ";
   push @lines , "</span>";
 
   push @lines , "<span class=\"label1\">";
   push @lines , "<input id=xml2 name=output-format value=XML type=submit class=submit set what=text ";
-  push @lines , "onclick=\"dpform.what.value='text';dpform.svg.value='';dpform.jpg.value='';dpform.xml.value=true;dpform.biopax.value=''\"/> ";
+  push @lines , "onclick=\"dpform.what.value='text';dpform.svg.value='';dpform.jpg.value='';dpform.xml.value=true;dpform.biopax.value=''dpform.xaml.value=''\"/> ";
   push @lines , "</span>";
 
   push @lines , "<span class=\"label1\">";
   push @lines , "<input id=BioPax2 name=output-format value=BioPAX type=submit class=submit set what=text ";
-  push @lines , "onclick=\"dpform.what.value='text';dpform.svg.value='';dpform.jpf.value='';dpform.xml.value='';dpform.biopax.value=true\"/> ";
+  push @lines , "onclick=\"dpform.what.value='text';dpform.svg.value='';dpform.jpg.value='';dpform.xml.value='';dpform.biopax.value=true dpform.xaml.value=''\"/> ";
+  push @lines , "</span>";
+
+  push @lines , "<span class=\"label1\">";
+  push @lines , "<input id=xaml2 name=output-format value=Silverlight-beta type=submit class=submit set what=graphic ";
+  push @lines , "onclick=\"dpform.what.value='graphic';dpform.svg.value='';dpform.jpg.value='';dpform.xml.value='';dpform.biopax.value='';dpform.xaml.value=true\"/> ";
   push @lines , "</span>";
 
   push @lines , "</form>";
@@ -1661,7 +1758,7 @@ sub BatchIntermediatePage_1 {
   # Query Database
   # List results and p-values
   
-  my $db = DBI->connect("DBI:Oracle:" . "cgdev",
+  my $db = DBI->connect("DBI:Oracle:" . "cgprod",
         "web", "readonly");
  
   if (not $db or $db->err()) {
@@ -1676,6 +1773,7 @@ sub BatchIntermediatePage_1 {
   my $file_b = 'c:\\search2.txt';
   if ($file_a) {
     while (<$file_a>) {
+      print STDERR "In while $file_a\n"; 
       s/\n//g;
       s/\r//g;
       s/^ +//;
@@ -1747,7 +1845,7 @@ sub IntermediatePage_1 {
 
   }
 
- my $db = DBI->connect("DBI:Oracle:" . "cgdev",
+ my $db = DBI->connect("DBI:Oracle:" . "cgprod",
         "web", "readonly");
   if (not $db or $db->err()) {
     print STDERR "#! Cannot connect to " . $db_user . "@" .
@@ -2281,7 +2379,7 @@ sub MoleculeHeader_1 {
   $found = 0; 
   $moleculeName = lc $moleculeName;
 
-  my $db = DBI->connect("DBI:Oracle:" . "cgdev",
+  my $db = DBI->connect("DBI:Oracle:" . "cgprod",
         "web", "readonly");
   if (not $db or $db->err()) {
     print STDERR "#! Cannot connect to " . $db_user . "@" .
@@ -2786,7 +2884,7 @@ sub MolListHeader_1 {
   }
   my $symbol;
   my $mol_id;
-  push @lines, "<p><a href=\"ftp://ftp1.nci.nih.gov/pub/PID/molList/$pid.mol.csv.gz\">Export molecule list</a><p>";
+  push @lines, "<p><a href=\"ftp://ftp1.nci.nih.gov/pub/PID/molList/$pid.mol.tab.gz\">Export molecule list</a><p>";
 
   push @lines, "<table class=data border=0 cellpadding=0 cellspacing=0<thead>";
   push @lines, "<th>Molecules</th><th>Uses in complexes (duplicate names indicate differences in component properties)</th>";
@@ -3180,7 +3278,8 @@ from
   $schema.pw_pathway p1,
   $schema.pw_pathway p2,
   $schema.pw_abstraction a,
-  $schema.pw_pathway_atom pa
+  $schema.pw_pathway_atom pa,
+  $schema.pw_subnet s
 where
   pa.pathway_id = p2.pathway_id
   and pa.atom_id = a.atom_id
@@ -3188,6 +3287,9 @@ where
   and (a.pathway_id = p1.pathway_id or a.ext_pathway_id = p1.ext_pathway_id)
   and p1.pathway_id = $pid
   and p1.subnet = 'Y'
+  and s.subnet_pathway_id = p1.pathway_id
+  and p2.pathway_id = s.parent_pathway_id
+
 !;
    my $stmsub = $db->prepare($sqlsub);
     if (not $stmsub) {
@@ -3261,6 +3363,77 @@ where
       push @lines, "<p><br></p>";
     }
   }
+
+  if ($source eq "NATURE") {
+     my @category_name;
+     my $category_count = 0;
+     my $first = 1;
+     my $category_url = $BASE . "/browse_categories.shtml?CMD=open&NODE=$pid&GOIDS=";
+     my $parent_id = $pid;
+
+       $sqlc = "select pathway_parent, parent_ext_id " .
+            "from $schema.pw_pathway_parent " .
+            "where pathway_id = $parent_id " ;
+       $stmc = $db->prepare($sqlc);
+       if (not $stmc) {
+         print STDERR "$sqlc\n";
+         print STDERR "$DBI::errstr\n";
+         print STDERR "prepare call failed\n";
+         die;
+       }
+       if (!$stmc->execute()) {
+         print STDERR "$sqlc\n";
+         print STDERR "$DBI::errstr\n";
+         print STDERR "execute call failed\n";
+         die;
+       }
+       my $find_parent = 0;
+       print STDERR "Before while\n";
+       while ((my $parent, my $parent_name) = $stmc->fetchrow_array()) {
+         $category_url = $category_url . "$parent" . ",";
+         $parent_id = $parent;
+         if ($parent_id < 200000) {
+           $category_name[$category_count] = $parent_name;
+           $category_count++;
+         }
+         if ($category_count == 0) {
+           $find_parent = $parent_id;
+         }
+         if ($parent_id > 4) {
+           my $new_parents = GetParents($parent_id);
+           $category_url = $category_url . "$new_parents" . ",";
+         }
+       }
+       $stmc->finish();
+     $category_url = $category_url . 1;
+     if ($category_count == 0 ) {
+       print STDERR "Before GetParentReturn\n";
+       $category_name[0] = GetParentName($find_parent);
+       $category_count++;
+     }
+     my $category_string = "<p class=\"citation\"><b><span class\"title\">Pathway category:  </span></b>";
+     for (my $k = 0; $k < $category_count; $k++) {
+       my $cat_name = $category_name[$k];
+       $category_string = $category_string . "<a href=\"$category_url\">$cat_name</a>";
+       if ($k + 1 == $category_count) {
+         $category_string = $category_string . "</p>";
+       } else {
+         $category_string = $category_string . ", ";
+       }
+     }
+     push @lines, "$category_string";
+
+ }
+
+  if ($parentName ne 'None') {
+    if ($format eq 'jpg') {
+      push @lines, "<p class=\"citation\"><span class=\"title\">Parent pathway:  </span>  <a href=\"/search/pathway_landing.shtml?pathway_id=$parentPid&source=$source&what=graphic&jpg=on&ppage=1\">$parentName</a></p><br>";
+    }
+    if ($format eq 'svg') {
+      push @lines, "<p class=\"citation\"><span class=\"title\">Parent pathway:  </span><a href=\"/search/pathway_landing.shtml?pathway_id=$parentPid&source=$source&what=graphic&svg=on&ppage=1\">$parentName</a></p>";
+      push @lines, "<p><br>";
+    }
+  }
 	 
   if ($source eq "NATURE") {
     push @lines, "<p class=\"citation\"><a href=\"mailto:nci-pid\@nature.com\">Submit feedback for this pathway</a></p>";
@@ -3284,14 +3457,19 @@ where
   push @lines, "<li><a class=\"button-style\" href=\"/search/pathway_landing.shtml" .
        "?pathway_id=$pid" . "&source=$source" . "&genes_a=$genes_a" . "&genes_b=$genes_b" . "&what=graphic&svg=on&ppage=1\">SVG</a></li>";
 
+    push @lines, "<li><a class=\"button-style\" href=\"/xaml_landing.shtml" .
+       "?pathway_id=$pid" . "&source=$source" . "&what=text&xaml=true\">Silverlight-beta</a></li>";
+
   push @lines, "<li><div class=\"helpbox\">";
   push @lines, "<a href=\"#\" class=\"help\">Help</a>";
   push @lines, "<div class=\"description\">";
-  push @lines, "<h2 class=\"title\">Options for the type of output</h2>";
-  push @lines, "<p class=\"norm\">You can view the pathway as either a JPG or SVG image. All biomolecules and interactions in the SVG and JPG formats are interactive; clicking on them will open information windows.</p>";
+  push @lines, "<h2 class=\"title\">Information on graphics types</h2>";
+  push @lines, "<p class=\"norm\">The pathway can be viewed as a JPG, SVG or Silverlight image. All molecules and interactions within the graphics formats are interactive; clicking on them will open information windows.</p>";
   push @lines, "<p class=\"norm\"><B>JPG:</b>  All common web browsers are able to display JPG images.  However, please note that some browsers may not support very large JPG files.</p>";
   push @lines, "<p class=\"norm\"><B>SVG:</b>  The advantage of SVG images is that they can be more easily zoomed and panned on-screen.  If your browser is not completely SVG enabled, please visit the <a href=\"/PID/userguide/output_formats.shtml\">User guide</a> and follow the instructions for installing the SVG plug-in specific to your browser</p>";
   push @lines, "<p class=\"norm\"><b>SVG image navigation:</b>  Use the left mouse button to activate the image.  To <b>zoom</b> in or out, use the right mouse button and select from the options on the pop-up menu.  To <b>pan</b> the image, hold down the alt key and click-and-drag the image with the mouse.</p>";
+  push @lines, "<p class=\"norm\"><b>Silverlight:  </b>Please visit http://www.microsoft.com/getsilverlight/Get-Started/Install/Default.aspx to install the plug-in for your browser.</p>";
+  push @lines, "<p class=\"norm\"><b>Silverlight image navigation:  Zoom</b> is available at the top-left of the image. To <b>pan</b> merely drag the image with the mouse.  In the image you may search for specific molecules or all molecules at a certain subcellular location.  To search for molecules you may enter their names, Entrez Gene identifiers or UniProt accession numbers.</p>";
   push @lines, "</div>";
   push @lines, "</div>";
   push @lines, "</li>";
@@ -3307,7 +3485,7 @@ where
   push @lines, "<li><div class=\"helpbox\">";
   push @lines, "<a href=\"#\" class=\"help\">Help</a>";
   push @lines, "<div class=\"description\">";
-  push @lines, "<h2 class=\"title\">Code options for the type of output</h2>";
+  push @lines, "<h2 class=\"title\">Information on types of pathway code</h2>";
   push @lines, "<p class=\"norm\">You can view the pathway code in either XML or BioPax formats.  Please see the <a href=\"/PID/userguide/output_formats.shtml\">User guide</a> for more information.</p>";
   push @lines, "</div>";
   push @lines, "</div>";
@@ -3319,7 +3497,7 @@ where
   push @lines, "</ul>";
 
 
-  push @lines, "<p class=\"norm\">A <a href=\"/xaml_landing.shtml?pathway_id=$pid" . "&source=$source" . "&jpg=true&what=graphic/#key\">key to the image</a> icons appears below the pathway.  Click on a biomolecule or interaction for additional information.</p>";
+  push @lines, "<p class=\"norm\">A <a href=\"/xaml_landing.shtml?pathway_id=$pid" . "&source=$source" . "&xaml=true&what=text/#key\">key to the image</a> icons appears below the pathway.  Click on a biomolecule or interaction for additional information.</p>";
  
   $db->disconnect();
  
@@ -3407,11 +3585,8 @@ my $sqlp = "select a.ext_pathway_id " .
            print STDERR "SQL:  $sqlp\n"; 
            while ((my $t1) = $stmp->fetchrow_array()) {
              print STDERR "In while:  $t1\n";
-             $parent_return = $parent_return . ',' . $t1;
-           } 
-           print STDERR "After while: $parent_return\n";
-           $parent_return = substr($parent_return,1);
-           print STDERR "After parent:  $parent_return\n";
+             $parent_return = $t1 
+           }
            $stmp->finish();
 
 return $parent_return;
@@ -3479,7 +3654,7 @@ sub PathwayHeader_1 {
     die;
   }
   ($source, $pname, $ext_id, $pid, $last_updated) = $stm->fetchrow_array();
-  $stm->finish();
+   $stm->finish();
 
   my ($sec, $min, $hr, $mday, $mon, $year, $wday, $yday, $isdst) =
       localtime($last_updated);
@@ -3528,15 +3703,14 @@ select distinct
 from
   $schema.pw_pathway p1,
   $schema.pw_pathway p2,
-  $schema.pw_abstraction a,
-  $schema.pw_pathway_atom pa
+  $schema.pw_subnet s
 where
-  pa.pathway_id = p2.pathway_id
-  and pa.atom_id = a.atom_id
-  and p1.pathway_source_id = p2.pathway_source_id
-  and (a.pathway_id = p1.pathway_id or a.ext_pathway_id = p1.ext_pathway_id)
+  p1.pathway_source_id = p2.pathway_source_id
   and p1.pathway_id = $pid
   and p1.subnet = 'Y' 
+  and s.subnet_pathway_id = p1.pathway_id
+  and p2.pathway_id = s.parent_pathway_id
+
 !;
     my $stmsub = $db->prepare($sqlsub);
     if (not $stmsub) {
@@ -3677,7 +3851,6 @@ where
      push @lines, "$category_string";
 
   }
-
   if ($parentName ne 'None') {
     if ($format eq 'jpg') {
       push @lines, "<p class=\"citation\"><span class=\"title\">Parent pathway:  </span>  <a href=\"/search/pathway_landing.shtml?pathway_id=$parentPid&source=$source&what=graphic&jpg=on&ppage=1\">$parentName</a></p><br>";
@@ -3708,16 +3881,21 @@ where
 
   push @lines, "<li><a class=\"button-style\" href=\"/search/pathway_landing.shtml" .
        "?pathway_id=$pid" . "&source=$source" . "&genes_a=$genes_a" . "&genes_b=$genes_b" . "&what=graphic&svg=on&ppage=1\">SVG</a></li>";
+
+  push @lines, "<li><a class=\"button-style\" href=\"/xaml_landing.shtml" .
+       "?pathway_id=$pid" . "&source=$source" . "&genes_a=$genes_a" . "&genes_b=$genes_b" . "&what=text&xaml=on&ppage=1\">Silverlight-beta</a></li>";
  
 
   push @lines, "<li><div class=\"helpbox\">";
   push @lines, "<a href=\"#\" class=\"help\">Help</a>";
   push @lines, "<div class=\"description\">";
-  push @lines, "<h2 class=\"title\">Options for the type of output</h2>";
-  push @lines, "<p class=\"norm\">You can view the pathway as either a JPG or SVG image. All biomolecules and interactions in the SVG and JPG formats are interactive; clicking on them will open information windows.</p>";
+  push @lines, "<h2 class=\"title\">Information on graphics types</h2>";
+  push @lines, "<p class=\"norm\">The pathway can be viewed as a JPG, SVG or Silverlight image. All molecules and interactions within the graphics formats are interactive; clicking on them will open information windows.</p>";
   push @lines, "<p class=\"norm\"><B>JPG:</b>  All common web browsers are able to display JPG images.  However, please note that some browsers may not support very large JPG files.</p>";
   push @lines, "<p class=\"norm\"><B>SVG:</b>  The advantage of SVG images is that they can be more easily zoomed and panned on-screen.  If your browser is not completely SVG enabled, please visit the <a href=\"/PID/userguide/output_formats.shtml\">User guide</a> and follow the instructions for installing the SVG plug-in specific to your browser</p>"; 
   push @lines, "<p class=\"norm\"><b>SVG image navigation:</b>  Use the left mouse button to activate the image.  To <b>zoom</b> in or out, use the right mouse button and select from the options on the pop-up menu.  To <b>pan</b> the image, hold down the alt key and click-and-drag the image with the mouse.</p>";
+  push @lines, "<p class=\"norm\"><b>Silverlight:  </b>Please visit http://www.microsoft.com/getsilverlight/Get-Started/Install/Default.aspx to install the plug-in for your browser.</p>";
+  push @lines, "<p class=\"norm\"><b>Silverlight image navigation:  Zoom</b> is available at the top-left of the image. To <b>pan</b> merely drag the image with the mouse.  In the image you may search for specific molecules or all molecules at a certain subcellular location.  To search for molecules you may enter their names, Entrez Gene identifiers or UniProt accession numbers.</p>";
   push @lines, "</div>";
   push @lines, "</div>"; 
   push @lines, "</li>";
@@ -3733,7 +3911,7 @@ where
   push @lines, "<li><div class=\"helpbox\">";
   push @lines, "<a href=\"#\" class=\"help\">Help</a>";
   push @lines, "<div class=\"description\">";
-  push @lines, "<h2 class=\"title\">Code options for the type of output</h2>";
+  push @lines, "<h2 class=\"title\">Information on types of pathway code</h2>";
   push @lines, "<p class=\"norm\">You can view the pathway code in either XML or BioPax formats.  Please see the <a href=\"/PID/userguide/output_formats.shtml\">User guide</a> for more information.</p>";
   push @lines, "</div>";
   push @lines, "</div>";
@@ -3772,7 +3950,7 @@ where
   my $mols_b = GetMolIdsForEntrezGene($db, $pid, \%genes_b);
  
   if ($format ne 'xaml') { 
-  push @lines, CreateGraphicFile($db, $schema, $pid, $source, $mols_a, $mols_b, $format);
+    push @lines, CreateGraphicFile($db, $schema, $pid, $source, $mols_a, $mols_b, $format);
   } 
   $db->disconnect();
   return join("\n", @lines) . "\n";
@@ -4127,7 +4305,7 @@ sub GetPwImage_1 {
   }
   my (@buf);
   my $i = 0;
-  my $fn = CACHE_ROOT . "/" . PW_CACHE_PREFIX . ".$id";
+  my $fn = CACHE_ROOT . "/" . PW_CACHE_PREFIX . ".$id" ;
   open(INF, $fn) or return "Failed to open cache file $fn";
   while (read INF, $buf[$i], 16384) {
     $i++;
@@ -4155,6 +4333,8 @@ sub GraphicsByClan {
       push @clans, $clan;
     }
   }
+  my @dot2;
+  my $counter = 0;
   for $clan (@clans) {
     $size = $clan->ClanSize();
     if ($size > MAX_DOT_INTERACTIONS  && ! $parm->{collapse}{processes}) {
@@ -4164,8 +4344,10 @@ sub GraphicsByClan {
     }
     my $cache = new Cache(CACHE_ROOT, PW_CACHE_PREFIX);
     my ($cache_id, $filename) = $cache->MakeCacheFile();
+    print STDERR "Filename:  $filename\n";
+    
     if ($cache_id != $CACHE_FAIL) {
-
+      print STDERR "Cache didn't fail\n";
       open(OUTF, ">$filename.dot");
       my $dot = new DOToutput($pw, $lv, *OUTF);
       $dot->SetGraphicFormat($graphic_type);
@@ -4214,9 +4396,56 @@ sub GraphicsByClan {
       close(OUTF);
       chmod 0666, "$filename.dot";
       push @cache_ids, $cache_id;
-      my $cmd = DOT_PGM .  " $filename.dot -T$graphic_type > $filename";
+      my $graphic_hold = $graphic_type;
+      if ($graphic_type eq 'xaml') {
+      #   $graphic_type = 'svg';
+      }
+      if ($graphic_type ne 'xaml') {
+        my $cmd = DOT_PGM .  " $filename.dot -T$graphic_type > $filename";
+        system($cmd);
+      }
+      my $cmd = DOT_PGM .  " $filename.dot -Tdot > $filename.coords";
       system($cmd);
+      print STDERR "Coords created\n";
       chmod 0666, $filename;
+      $cmd = "rm $filename.meta";
+      system($cmd);
+      $cmd = "/share/content/PID/run/dot2xaml.pl $filename.coords $filename.xamltemp $filename.meta";
+      system($cmd);
+
+      my $coordfile = $filename . ".coords";
+      my $xamlfile = $filename . ".xamltemp"; 
+      my $metafile = $filename . ".meta";
+      
+      open (META, "< $filename.meta");
+      open (XAMLTEMP, "< $filename.xamltemp");
+      open (XAML, "> $filename.xaml");
+   
+      my $count = 1;
+      while (<XAMLTEMP>) {
+        chomp;
+        if ($count == 4) {
+          while (<META>) {
+            chomp;
+            my $temp2 = $_;
+            print XAML "$temp2\n";
+          }
+        }
+        my $temp = $_;
+        print XAML "$temp\n";
+        $count++;
+      }
+     
+      close(META);
+      close(XAMLTEMP);
+      close(XAML);
+      my $xamlname = $filename . ".xaml";
+      chmod 0666, "$xamlname";
+      if ($graphic_type eq "xaml") {
+        my $cmd = "cp $xamlname $filename";
+        system($cmd);
+        chmod 0666, "$filename";
+      } 
       if ($graphic_type eq "jpg") {
         my $cmd = DOT_PGM .  " $filename.dot -Tcmap > $filename.map";
         system($cmd);
@@ -4228,6 +4457,7 @@ sub GraphicsByClan {
       return 0;
     }
   }
+  print STDERR "Before return\n";
   return (join(",", @cache_ids), join(",", @map_files) );
 }
 
@@ -4296,7 +4526,106 @@ sub MakeColorScale {
 ######################################################################
 sub PrPathReturn {
   my ($status, $data_type, $data, $map_files, $atom_ids,
-      $parm, $pw) = @_;
+      $parm, $pw, $interactionpage) = @_;
+  print STDERR "In PrPathReturn\n";
+  if ($data_type eq "xaml") {
+    print STDERR "In xaml parm:  $parm\n";
+    my @lines;
+    my @clans     = split(",", $data);
+    my $n = 0;
+    my $linecount = 0;
+    my $mingid = 1000;
+    my $maxgid = 0;
+    for my $gid (@clans) {
+      if ($gid < $mingid) {
+        $mingid = $gid;
+      }
+      if ($gid > $maxgid) {
+        $maxgid = $gid;
+      } 
+    }
+    my @nolines;
+    MatchResults($parm, $pw, "html");
+    my $locationString = '';
+    for (my $gid = $mingid; $gid <= $maxgid; $gid++) {
+      my $xamlfile = "/share/content/PID/data/cache/PW." . $gid . ".xaml";
+      open (XAMLFILE, $xamlfile);
+      while (<XAMLFILE>) {
+        my @line = split(/=/,$_);
+        if (($line[0] eq 'Location') && ($line[1] ne '""') && ($line[1] ne '')) {
+          $line[1] =~ s/"//g;
+          $line[1] =~ s/\n//g;
+          if ($line[1] ne '') {
+            $locationString = $locationString . ':' . $line[1];
+          } 
+        }
+      }
+      close(XAMLFILE);
+    }
+    push @lines, "<body onload=\"WaitToCallXaml($mingid, $maxgid);\" id=\"article-related\" class=\"www-nature-com-nci fullstretch\"  > ";
+     push @lines, "<form id=\"formtest\" style=\"height: 10%\" >";
+push @lines, "<input class=\"submit\" id=\"ZoomInButton\" type=\"button\" value=\"+\" alt=\"Zoom in\" onclick=\"CallSL_Zoom(1.5, $mingid, $maxgid)\" /> ";
+    push @lines, "<input class=\"submit\" id=\"ZoomOutButton\" type=\"button\" value=\"-\" alt = \"Zoom out\" onclick=\"CallSL_Zoom(.75, $mingid, $maxgid)\" /> ";
+
+    push @lines, "Molecule name/ID search:<input id=\"SearchXAML\" type=\"text\" value=\"\" /> ";
+    push @lines, "<input id=\"searchTypeList\" value=\"entitysearch\" type=\"hidden\" /> ";
+			
+    push @lines, "<input class=\"submit\" id=\"SearchXAMLButton\" type=\"button\" value=\"Go\" onclick=\"callSL_SearchPathwayXAML($mingid, $maxgid)\" /> ";
+    push @lines, "Location:  ";
+    push @lines, "<select id=\"searchLocationList\" > ";
+    push @lines, "</select> ";
+    push @lines, "<script language=\"javascript\"> ";
+    push @lines, "addLocation(\"$locationString\")";
+    push @lines, "</script>";
+    push @lines, "<input class=\"submit\" id=\"searchByLocation\" type=\"button\" value=\"Go\" onclick=\"callSL_SearchPathwayByLocation($mingid, $maxgid)\" /> ";
+    push @lines, "<BR><BR><input class=\"submit\" id=\"LoadXAMLButton\" type=\"button\" value=\"Reload\" onclick=\"LoadSL_GetPathwayXAML($mingid, $maxgid)\" /> ";
+
+    push @lines, "</form>";
+			 
+    for my $gid (@clans) {
+      if (@clans > 1) {
+        $n++; 
+         push @lines, "<p><table><tr bgcolor=firebrick>" .
+            "<td><b><font color=white>Network Map $n</font></b></td>" .
+            "</tr></table>"; 
+        
+      }
+       
+      push @lines, "<form id=\"form$gid\" style=\"height: 100%\" >"; 
+      push @lines, "<div id=\"silverlightControlHost\">";
+      push @lines, "<div class=\"container-image\">";
+      push @lines, "</div>";
+      push @lines, "<object id=\"SLP$gid\" name=\"SLP$gid\" data=\"data:application/x-silverlight-2,\" type=\"application/x-silverlight-2\" ";
+      push @lines, "width=\"100%\" height=\"90%\"> ";
+      push @lines, "<param name=\"source\" value=\"/ClientBin/PathwayViewer.xap\" /> ";
+      push @lines, "<param name=\"onError\" value=\"onSilverlightError\" /> ";
+      push @lines, "<param name=\"background\" value=\"white\" /> ";
+      push @lines, "<param name=\"minRuntimeVersion\" value=\"3.0.40624.0\" /> ";
+      push @lines, "<param name=\"autoUpgrade\" value=\"true\" /> ";
+      push @lines, "<param name=\"windowless\" value=\"true\" /> ";
+      push @lines, "<a href=\"http://go.microsoft.com/fwlink/?LinkID=149156&v=3.0.40624.0\" style=\"text-decoration: none\"> ";
+      push @lines, "<img src=\"http://go.microsoft.com/fwlink/?LinkId=108181\" alt=\"Get Microsoft Silverlight\" ";
+      push @lines, "style=\"border-style: none\" />";
+      push @lines, "</a>";
+      push @lines, "</object>";
+      push @lines, "</div>";
+      push @lines, "</form>"; 
+      # my $xamlfile = "/share/content/PID/data/cache/PW." . $gid . ".xaml";
+      # print STDERR "Xamlfile:  $xamlfile\n"; 
+      # open (XAMLFILE, $xamlfile);
+      #while (<XAMLFILE>) {
+      #  push @lines, $_;
+      #  $linecount++;
+      #}
+      #print STDERR "Linecount:  $linecount\n";
+      #close(XAMLFILE);
+      # Add stuff for Silverlight
+    }
+    my $atom_ids;
+    return join("\001", $status, $data_type,
+        join("\n", @lines), $atom_ids);
+ 
+  }
 
   if ($data_type eq "text") {
     if (($status eq S_NO_DATA) && (defined $pw)) {
@@ -4343,8 +4672,9 @@ sub PrPathReturn {
       }
     }
  
-    if (@clans > 0) {
-      print STDERR "Should print KEY\n";
+    $interactionpage = 1;
+ 
+    if ((@clans > 0) && ($interactionpage < 1)) {
       push @lines, "</div>";
       push @lines, "<div id=\"key-constrain\"> ";
       push @lines, "<div class=\"key-constrain\"> ";
@@ -4373,7 +4703,7 @@ push @lines, "><li>m - transmembrane</li";
 push @lines, "><li>cy - cytoplasm</li";
 push @lines, "><li>mi - mitochondria</li";
 push @lines, "><li>n - nucleus</li";
-push @lines, "><li>ex - extracellular</li";
+push @lines, "><li>ex - extracellular region</li";
 push @lines, "><li>v - vesicle</li";
 push @lines, "><li>cs - calcium store</li";
 push @lines, "><li>en - endosome</li";
@@ -4722,15 +5052,11 @@ sub PrBatch_1 {
 sub PrPath_1 {
   my ($base, $graphic_type, $parm_string) = @_;
 
-  print STDERR "In PrPath\n";
-  
   $BASE = $base;
   my $pathway;
   my $source;
   my $atomidlist;
   $parm_string = "$parm_string\n";    ## add just in case
-  
-  
 
   my $scancheck = Scan($parm_string);
   print STDERR "After Scan: parmstring $parm_string\n";
@@ -4743,24 +5069,25 @@ sub PrPath_1 {
     return PrPathReturn(S_BAD_REQUEST, "text",
         join("\n", @{ $parm->{errors} }) . "\n", "", "", $parm, undef);
   };
-  print STDERR "After readParam\n";
   my $atomcheck = $parm->{atom}{100758};
-  print STDERR "After checkparams: $atomcheck\n";
 
   my $db = DBI->connect("DBI:Oracle:" . $db_inst, $db_user, $db_pass);
   if (not $db or $db->err()) {
     print STDERR "Cannot connect to " . $db_user . "@" . $db_inst . "\n";
     die;
   }
-  print STDERR "Before CheckParams\n";
   if (! $parm->CheckParams($db) ) {
     return PrPathReturn(S_BAD_REQUEST, "text",
         join("\n", @{ $parm->{errors} }) . "\n", "", "", $parm, undef);
   }
-  #  return PrPathReturn(S_BAD_REQUEST, "text", $parm_string);
+  #  return PrPathReturn(S_BAD_REQUEST, "text", "xamlreturn $parm_string");
+  my $transcriptionflag = $parm->{transcription};
+  if ($transcriptionflag eq 'transcription') {
+    $transcriptionflag = 1;
+  }
 
   if (! defined $parm->{print} &&
-      ($graphic_type eq "svg" || $graphic_type eq "jpg")) {
+      ($graphic_type eq "svg" || $graphic_type eq "jpg" || $graphic_type eq "xaml" )) {
     $parm->{print}{"dot"} = 1;
   }
 
@@ -4912,8 +5239,8 @@ where
       # $parm->{mol_id}{$molid} = 1;
   }
   $stm->finish();
-      my $retval = $pdb->MolSearch($db, $schema, [keys %{ $parm->{mol_id} }], [keys %{ $parm->{source_id} }], [keys %{ $parm->{evidence_code}}]);
-      # return PrPathReturn(S_BAD_REQUEST, "text", "After MolSearch $retval");
+          my $retval = $pdb->MolSearch($db, $schema, $transcriptionflag, [keys %{ $parm->{mol_id} }], [keys %{ $parm->{source_id} }], [keys %{ $parm->{evidence_code}}]);
+#    # return PrPathReturn(S_BAD_REQUEST, "text", "After MolSearch $retval");
  
     }
 }
@@ -4990,7 +5317,7 @@ where
   print STDERR "return from BuildGenericLabelCache\n";
 
   if (defined $parm->{print}{"dot"} ||
-     $graphic_type eq "svg" || $graphic_type eq "jpg") {
+     $graphic_type eq "svg" || $graphic_type eq "jpg" || $graphic_type eq "xaml") {
     $pw->PruneDuplicateAtoms();
     print STDERR "return from PruneDuplicateAtoms\n";
   }
@@ -5007,7 +5334,7 @@ where
   }
 
   
-  # return PrPathReturn(S_BAD_REQUEST, "text", "After no atoms");
+  # Stopped here return PrPathReturn(S_BAD_REQUEST, "text", "After no atoms");
 
   if (defined $parm->{sim} && $parm->{sim}{method} eq "boolean") {
  
@@ -5041,7 +5368,7 @@ where
     $sim->SetUpSimTopology();
     $sim->InitializeMolValues($parm->{mol_id_value});
     $sim->Execute($parm->{sim}{ncycle});
-    if ($output_type eq "svg" || $output_type eq "jpg") {
+    if ($output_type eq "svg" || $output_type eq "jpg" || $output_type eq "xaml") {
       my $ni = @{ $pw->Atoms };
       # FFFFF 
       my $mdi = MAX_DOT_INTERACTIONS; 
@@ -5053,12 +5380,11 @@ where
             "Number of interactions $ni exceeds maximum (" .
             MAX_DOT_INTERACTIONS . ")", "", "", $parm, $pw);
       }
-      push @lines, "Insert Key Here";
+      print STDERR "Going to GraphicsByClan\n";
       return PrPathReturn(S_OK, $output_type,
           GraphicsByClan($pw, $lv, $parm, $output_type, $sim, $sim,
-          $coloring), join(",", @{ $pw->Atoms() }), $parm, $pw);
+          $coloring), join(",", @{ $pw->Atoms() }), $parm, $pw, 1);
     } else {
-      push @lines, "Insert Key Here";
       return PrPathReturn(S_OK, "text",
           join("\n", @lines, @{ $sim->Lines() }) . "\n",
           "", join(",", @{ $pw->Atoms() }), $parm, $pw);
@@ -5094,7 +5420,7 @@ where
 ##    $sim->InitializeDeviations($parm->{sim}{mol});
     $sim->InitializeDeviations($parm->{mol_id_value});
     $sim->Execute($parm->{sim}{ncycle});
-    if ($output_type eq "svg" || $output_type eq "jpg") {
+    if ($output_type eq "svg" || $output_type eq "jpg" || $output_type eq "xaml") {
       my $ni = @{ $pw->Atoms };
       if ($ni > MAX_DOT_INTERACTIONS && ! $parm->{collapse}{processes}) {
         # SetStatus(S_BAD_REQUEST);
@@ -5122,7 +5448,32 @@ where
         join("\n", @lines, @{ $xml->Lines() }) . "\n",
         "", join(",", @{ $pw->Atoms() }), $parm, $pw);
   }
-  
+
+ 
+  if (defined $parm->{print}{"xaml"}) {
+ 
+    # Create dot output with coords
+    # run dot2xaml on created file
+    # load xaml file
+    # Return as @lines
+
+    # use XMLOutput;
+    # my @lines;
+    # my $xml = new XMLOutput($pw, $lv);
+    #$xml->PrXML();
+    my @lines;
+    # dot->DOTGraph();
+
+      # Write dot file
+      # Convert to xaml
+      # Load xaml file
+      # return as lines
+
+    return PrPathReturn(S_OK, "text",
+        join("\n", @lines ) . "\n",
+        "", join(",", @{ $pw->Atoms() }), $parm, $pw);
+  }
+ 
   if (defined $parm->{print}{"biopax"}) {
     use BioPAXOutput;
     my @lines;
@@ -5231,7 +5582,7 @@ where
     }
 
     if ($graphic_type eq "" ||
-        ($graphic_type ne "svg" && $graphic_type ne "jpg")) {
+        ($graphic_type ne "xaml" && $graphic_type ne "svg" && $graphic_type ne "jpg")) {
 #      my $dot = new DOToutput($pw, $lv, *STDOUT);
       my $dot = new DOToutput($pw, $lv, "");
       if ($parm->{collapse}{molecules}) {
@@ -5274,10 +5625,16 @@ where
         $dot->SetAtomValueGenerator($atom_vg);
       }
       $dot->DOTGraph();
+
+      # Write dot file
+      # Convert to xaml
+      # Load xaml file
+      # return as lines
+      print STDERR "Returning DOT output\n";
       return PrPathReturn(S_OK, "text",
           join("\n", @lines, @{ $dot->Lines() }) . "\n",
           "", join(",", @{ $pw->Atoms() }), $parm, $pw);
-
+     
     } else {
       my $ni = @{ $pw->Atoms };
       if ($ni > MAX_DOT_INTERACTIONS && ! $parm->{collapse}{processes}) {
@@ -5287,7 +5644,7 @@ where
             MAX_DOT_INTERACTIONS . ")", "", "", $parm, $pw);
       }
 
- 
+      print STDERR "Hopefully returning jpg and svg output $graphic_type\n"; 
       return PrPathReturn(S_OK, $graphic_type,
           GraphicsByClan($pw, $lv, $parm, $graphic_type,
               $mol_vg, $atom_vg, $coloring),
@@ -6221,10 +6578,33 @@ sub IdStuff {
   my $aliasCount = 0;
   my $officialCount = 0;
   my $nhash = $pw->MolName($molid);
+  my $namepush = 0;
   for my $name_type (keys %{ $nhash }) {
     for my $name (keys %{ $$nhash{$name_type} }) {
       push @names, $name;
+      $namepush = 1;
     }
+  }
+  if ($namepush == 0) {
+    $sql = "select mol_name from $schema.pw_mol_name where mol_id = $molid";
+    $stm = $db->prepare($sql);
+    if(not $stm) {
+      print STDERR "$sql\n";
+      print STDERR "$DBI::errstr\n";
+      print STDERR "prepare call failed\n";
+      die;
+    }
+    if(!$stm->execute()) {
+      print STDERR "$sql\n";
+      print STDERR "$DBI::errstr\n";
+      print STDERR "execute call failed\n";
+      die;
+    }
+
+   while ((my $newmol) = $stm->fetchrow_array()) {
+     push @names, $newmol;
+   }
+ 
   }
   my ($label, $moltype) = $lv->LabelValueToString($pw->MolType($molid));
   if ($moltype eq "complex") {
@@ -6249,8 +6629,43 @@ sub IdStuff {
     }
   }
 
+  if ($namepush == 0) {
+    $sql = "select ext_mol_id, id_type from $schema.pw_ext_mol_id where mol_id = $molid";
+    $stm = $db->prepare($sql);
+    if(not $stm) {
+      print STDERR "$sql\n";
+      print STDERR "$DBI::errstr\n";
+      print STDERR "prepare call failed\n";
+      die;
+    }
+    if(!$stm->execute()) {
+      print STDERR "$sql\n";
+      print STDERR "$DBI::errstr\n";
+      print STDERR "execute call failed\n";
+      die;
+    }
+
+   while ((my $newmol, my $idtype) = $stm->fetchrow_array()) {
+     if ($idtype eq "LL") {
+        $locus = $newmol;
+      } elsif ($idtype eq "UP") {
+        $uniprot = $newmol;
+      } elsif ($idtype eq "CA") {
+        $ca = $newmol;
+      } elsif ($idtype eq "GO") {
+        $go = $newmol;
+      } elsif ($idtype eq "SG") {
+        $sg = $newmol;
+      } else {
+        push @ids, $newmol;
+      }
+   }
+
+  }
+
+
   $sql = "select ll_id from $schema.pw_ext_mol_id a, cgap.ll2sp b";
-  $sql = $sql . " where mol_id = $molid and a.ext_mol_id = b.sp_primary ";
+  $sql = $sql . " where mol_id = $molid and b.sp_primary = substr(a.ext_mol_id,0,6)";
   $sql = $sql . " and organism = 'Hs' ";
 
   $stm = $db->prepare($sql);
@@ -6498,7 +6913,10 @@ sub ComplexInfo {
       "<td><b>State<b></td>" .
       "<td><b>Modifications<b></td></tr>";
 
+  my $componentCount = 0;
+
   for $c (@{ $pw->Components($molid) }) {
+    $componentCount++;
     $compid = $pw->ComponentMol($molid, $c);
     undef $state;
     undef $location;
@@ -6528,7 +6946,46 @@ sub ComplexInfo {
         " >" . MoleculeName($pw, $compid) . "</a></td>" .
         "<td>$location</td><td>$state</td><td>$ptms</td></tr>";
   }
+  if ($componentCount == 0) { 
+   my $sql = qq!
+      select mol_id_1, mol_name
+      from pid.pw_mol_mol, pid.pw_mol_name
+      where mol_id_2 = $molid 
+      and mol_id_1 = mol_id
+      and relation = 'c'
+    !;
 
+    my $stm = $db->prepare($sql);
+    if(not $stm) {
+      print STDERR "$sql\n";
+      print STDERR "$DBI::errstr\n";
+      print STDERR "prepare call failed\n";
+      die;
+    }
+
+    if(!$stm->execute()) {
+      print STDERR "$sql\n";
+      print STDERR "$DBI::errstr\n";
+      print STDERR "execute call failed\n";
+      die;
+    }
+
+    while ((my $component, my $molname) = $stm->fetchrow_array()) {
+    if (@ptms > 0) {
+      $ptms = join("<br>", @ptms);
+    } else {
+      $ptms = "&nbsp;";
+    }
+    $state or $state = "&nbsp;";
+    $location or $location = "&nbsp;";
+
+      push @{ $lines }, "<tr><td><a href=" . MOLPAGE_URL($component) .
+        " >" . $molname . "</a></td>" .
+        "<td>$location</td><td>$state</td><td>$ptms</td></tr>";
+ 
+    }
+    $stm->finish();
+  } 
   push @{ $lines }, "</table>";
   push @{ $lines }, "</blockquote>";
 
@@ -6747,6 +7204,1286 @@ sub LeafComponents {
 ######################################################################
 # END MoleculePage
 ######################################################################
+######################################################################
+sub round {
+  my ($x) = @_;
+
+  if ($x >= 0) {
+    return int($x + 0.5);
+  } else {
+    return int($x - 0.5);
+  }
+}
+
+######################################################################
+sub PlaceArrow {
+  my ($stroke, $x0, $y0, $x1, $y1) = @_;
+
+  ##
+  ## constant dimensions for arrowhead
+  ## q0 is midpoint on the short size (side connected to the edge)
+  ## q1 is the tip of the arrowhead
+  ##
+
+  my ($q0x, $q0y) = (0,  0);
+  my ($q1x, $q1y) = (10, 0);
+  my ($q2x, $q2y) = (0,  3.5);
+  my ($q3x, $q3y) = (0, -3.5);
+  my ($q4x, $q4y) = (1,  3.5);
+  my ($q5x, $q5y) = (1, -3.5);
+
+  my $dx = $x1 - $x0;
+  my $dy = $y1 - $y0;
+
+  if (($dx < 0.01) && ($dx >= 0)) {
+    $dx = 0.01;
+  }
+
+  my $theta = atan($dy/$dx);
+
+ 
+   if ($theta > 0) {
+    $q1x = -10;
+  }
+
+  if (($theta == 0) && ($dx < 0)) {
+    $q1x = -10;
+  }
+
+  if ($dy > 0) {
+    $q1x = 10;
+  } 
+ 
+  if (($dy > 0) && ($dx < 0)) {
+    $q1x = -10;
+  }
+
+  # print STDERR "DX:  $dx DY:  $dy Theta:  $theta\n"; 
+ 
+  ##
+  ## matrix for clockwise rotation
+  ##
+
+  my $B = [ [ cos($theta), -sin($theta) ], [ sin($theta), cos($theta) ] ];
+
+  my ($p1x, $p1y) = simple_mult($q1x, $q1y, $B);
+  my ($p2x, $p2y) = simple_mult($q2x, $q2y, $B);
+  my ($p3x, $p3y) = simple_mult($q3x, $q3y, $B);
+  my ($p4x, $p4y) = simple_mult($q4x, $q4y, $B);
+  my ($p5x, $p5y) = simple_mult($q5x, $q5y, $B);
+
+  $p1x = sprintf("%.2f", $p1x + $x0);
+  $p1y = sprintf("%.2f", $p1y + $y0);
+  $p2x = sprintf("%.2f", $p2x + $x0);
+  $p2y = sprintf("%.2f", $p2y + $y0);
+  $p3x = sprintf("%.2f", $p3x + $x0);
+  $p3y = sprintf("%.2f", $p3y + $y0);
+  $p4x = sprintf("%.2f", $p4x + $x0);
+  $p4y = sprintf("%.2f", $p4y + $y0);
+  $p5x = sprintf("%.2f", $p5x + $x0);
+  $p5y = sprintf("%.2f", $p5y + $y0);
+
+
+
+  if ($stroke eq "ff0000") {
+    # print STDERR "$p4x,$p4y ", "$p2x,$p2y ", "$p3x,$p3y", "$p4x,$p3y", "$p1x,$p2y\n";
+    return [ "$p4x,$p4y", "$p2x,$p2y", "$p3x,$p3y", "$p5x,$p5y", "$p4x,$p4y" ];
+  }
+  return [ "$p1x,$p1y", "$p2x,$p2y", "$p3x,$p3y", "$p1x,$p1y" ];
+}
+
+######################################################################
+sub simple_mult {
+  my ($x, $y, $B) = @_;
+
+  ## multiply [x y] by 2x2 rotation matrix
+
+  my $ab0 = $x * $$B[0][0] + $y * $$B[0][1];
+  my $ab1 = $x * $$B[1][0] + $y * $$B[1][1];
+
+  return ($ab0, $ab1);
+}
+
+######################################################################
+sub Decls {
+  my ($root) = @_;
+  return $root->{decls};
+}
+
+######################################################################
+sub Color2Hex {
+  my ($color_word) = @_;
+  if (defined $hex_color{$color_word}) {
+    return $hex_color{$color_word};
+  } else {
+    # print STDERR "no hex for color $color_word\n";
+    return $hex_color{black};
+  }
+}
+
+######################################################################
+sub FindBB {
+  my ($root) = @_;
+
+  for my $decl (@{ Decls($root) }) {
+    my $node_edge = $decl->{nodeoredge};
+    if ($node_edge->{kind} eq "node" && $node_edge->{node} eq "graph") {
+      for my $attr (@{ $decl->{attrs} }) {
+        if ($attr->{label} eq "bb") {
+          return split(",", $attr->{value});
+        }
+      }
+    }
+  }
+}
+
+######################################################################
+sub GetDeclType {
+  my ($decl) = @_;
+  return $decl->{nodeoredge}->{kind};
+}
+
+######################################################################
+sub GetAttrs {
+  my ($decl) = @_;
+
+  my %attrs;
+
+  my $node_edge = $decl->{nodeoredge};
+  for my $attr (@{ $decl->{attrs} }) {
+    $attrs{$attr->{label}} = $attr->{value};
+  }
+  return \%attrs;
+}
+
+######################################################################
+sub GetId {
+  my ($decl) = @_;
+
+  my $decl_type = GetDeclType($decl);
+  if ($decl_type eq "node") {
+    return $decl->{nodeoredge}{node};
+  } else {
+    return $decl->{nodeoredge}{from} . " &#45;&gt; " . $decl->{nodeoredge}{to} ;
+  }
+}
+
+######################################################################
+sub PlainText {
+  my ($fh, $meta_f, $center_x, $center_y, $id, $width, $height, $attrs) = @_;
+
+  my $text      = $attrs->{label};
+  my $stroke    = Color2Hex($attrs->{color});
+  my $delta     = 5;
+  if (defined $text) {
+    PrintTextBlock($fh, $meta_f, 10, $text, $attrs, $id, $center_x, $center_y, $delta);
+  }
+}
+
+######################################################################
+sub Box {
+  my ($fh, $meta_f, $center_x, $center_y, $id, $width, $height, $attrs) = @_;
+
+  my $text      = $attrs->{label};
+  my $stroke    = Color2Hex($attrs->{color});
+
+  my $x0 = round($center_x - $width/2);
+  my $x1 = round($center_x + $width/2);
+  my $y0 = round($center_y - $height/2);
+  my $y1 = round($center_y + $height/2);
+
+  my $points = join(" ",
+    $x1 . "," . Invert($y1),
+    $x0 . "," . Invert($y1),
+    $x0 . "," . Invert($y0),
+    $x1 . "," . Invert($y0),
+    $x1 . "," . Invert($y1)
+  );
+
+  $stroke = "#" . $stroke;
+  
+  print $fh qq!
+  <Polygon Points="$points" FillRule="NonZero" Fill="$stroke" Stroke="$stroke"/>
+!;
+  print STDERR "In box\n";
+  if (defined $text) {
+    PrintTextBlock($fh, $meta_f, 12, $text, $attrs, $id, $center_x, $center_y, 1, "box", $x0 );
+  }
+  print STDERR "Leaving box\n"; 
+}
+
+###################################################################
+sub Circle {
+  my ($fh, $meta_f, $x, $y, $id, $attrs) = @_;
+
+  my $text      = $attrs->{label};
+  my $stroke    = Color2Hex($attrs->{color});
+   my @id_type = split(/[_]+/,$id);
+  my $atom_id;
+  if ($id_type[0] eq 'A') {
+    $atom_id = $id_type[1];
+  }
+ 
+  $x = $x - 7;
+  $y = $y + 7;
+
+  $y = Invert($y);
+
+  print $fh qq!
+  <HyperlinkButton  NavigateUri="http://pid.nci.nih.gov/search/InteractionPage?atomid=$atom_id" >
+      <HyperlinkButton.Content>
+      <Canvas Tag="$keyCount" Name=\"atom$atom_id\">
+      !;
+
+  print $fh qq!
+  <Ellipse Canvas.Left="$x" Width="14" Canvas.Top="$y" Height="14" Fill="#000000" Stroke="#000000" />
+!;
+  $x = $x - 4;
+  $y = $y - 4;
+
+  print $fh qq!
+  <Ellipse Canvas.Left="$x" Width="22" Canvas.Top="$y" Height="22" Stroke="#000000" />
+!;
+
+    print $fh qq!
+    </Canvas>
+    </HyperlinkButton.Content>
+    </HyperlinkButton>
+   !;
+
+   if (defined $text) {
+    PrintTextBlock($fh, $meta_f, 10, $text, $attrs, $id, $x, $y);
+  } else {
+    $keyCount++;
+  }
+ 
+}
+
+######################################################################
+sub Diamond {
+  my ($fh, $meta_f, $center_x, $center_y, $id, $width, $height, $attrs) = @_;
+
+  my $text      = $attrs->{label};
+  my $stroke    = Color2Hex($attrs->{color});
+  
+  my @id_type = split(/[_]+/,$id);
+  my $atom_id; 
+  if ($id_type[0] eq 'A') {
+    $atom_id = $id_type[1];
+  }
+
+  my $x0 = round($center_x - $width/2);
+  my $x1 = round($center_x + $width/2);
+  my $y0 = round($center_y - $height/2);
+  my $y1 = round($center_y + $height/2);
+
+  my $points = join(" ",
+    $center_x . "," . Invert($y1),
+    $x0 . "," . Invert($center_y),
+    $center_x . "," . Invert($y0),
+    $x1 . "," . Invert($center_y),
+    $center_x . "," . Invert($y1)
+  );
+  print $fh qq!
+  <HyperlinkButton  NavigateUri="http://pid.nci.nih.gov/search/InteractionPage?atomid=$atom_id" >
+      <HyperlinkButton.Content>
+      <Canvas Tag="$keyCount" Name=\"atom$atom_id\"> 
+      !;
+
+  print $fh qq!
+  <Polygon Points="$points" FillRule="NonZero" Fill="#000000" Stroke="#000000"/>
+!;
+ 
+   print $fh qq!
+    </Canvas> 
+    </HyperlinkButton.Content>
+    </HyperlinkButton>
+   !;
+  
+   if (defined $text) {
+    PrintTextBlock($fh, $meta_f, 10, $text, $attrs, $id, $center_x, $center_y);
+  } else {
+    $keyCount++;
+  }
+}
+
+######################################################################
+sub Triangle {
+  my ($fh, $meta_f, $center_x, $center_y, $id, $width, $height, $attrs) = @_;
+
+  my $text      = $attrs->{label};
+  my $stroke    = Color2Hex($attrs->{color});
+  my @id_type = split(/[_]+/,$id);
+  my $atom_id;
+  if ($id_type[0] eq 'A') {
+    $atom_id = $id_type[1];
+  }
+
+  my $x0 = round($center_x - $width/2);
+  my $x1 = round($center_x + $width/2);
+  my $y0 = round($center_y - $height/2);
+  my $y1 = round($center_y + $height/2);
+
+  my $points = join(" ",
+    $center_x . "," . Invert($y1),
+    $x0 . "," . Invert($y0),
+    $x1 . "," . Invert($y0),
+    $center_x . "," . Invert($y1)
+  );
+
+print $fh qq!
+  <HyperlinkButton  NavigateUri="http://pid.nci.nih.gov/search/InteractionPage?atomid=$atom_id" >
+      <HyperlinkButton.Content>
+      <Canvas Tag="$keyCount" Name=\"atom$atom_id\">
+      !;
+
+  print $fh qq!
+  <Polygon Points="$points" FillRule="NonZero" Fill="#000000" Stroke="#000000"/>
+!;
+
+  print $fh qq!
+    </Canvas>
+    </HyperlinkButton.Content>
+    </HyperlinkButton>
+    !;
+
+  if (defined $text) {
+    PrintTextBlock($fh, $meta_f, 10, $text, $attrs, $id, $center_x, $center_y);
+  } else {
+    $keyCount++;
+  }
+}
+
+######################################################################
+sub Parallelogram {
+  my ($fh, $meta_f, $center_x, $center_y, $id, $width, $height, $attrs) = @_;
+
+  my $text      = $attrs->{label};
+  my $stroke    = Color2Hex($attrs->{color});
+  my $delta     = 5;
+  my $offset = $height/$tangent;
+
+  my $x0 = $center_x - $width/2;
+  my $x1 = $center_x + $width/2;
+  my $y0 = $center_y - $height/2;
+  my $y1 = $center_y + $height/2;
+
+  my $points = join(" ",
+    $x1 . "," . Invert($y1),
+    $x0 + $offset . "," . Invert($y1),
+    $x0 . "," . Invert($y0),
+    $x1 - $offset . "," . Invert($y0),
+    $x1 . "," . Invert($y1)
+  );
+
+  print $fh qq!
+  <Polygon Tag="$keyCount" Points="$points" Stroke="#000000"/>
+!;
+
+  if (defined $text) {
+    PrintTextBlock($fh, $meta_f, 10, $text, $attrs, $id, $center_x, $center_y, $delta, 'parallelogram');
+  }
+}
+
+######################################################################
+sub Mrecord {
+  my ($fh, $meta_f, $center_x, $center_y, $id, $width, $height, $attrs) = @_;
+  
+  my $delta = 7;
+  my $text      = $attrs->{label};
+  my $stroke    = Color2Hex($attrs->{color});
+
+  my $x0 = round($center_x - $width/2);
+  my $x1 = round($center_x + $width/2);
+  my $y0 = round($center_y - $height/2);
+  my $y1 = round($center_y + $height/2);
+
+  ## South
+
+  my $sswx = $x0 + $ROUND_CORNER_CLIP; my $sswy = Invert($y0);
+  my $ssex = $x1 - $ROUND_CORNER_CLIP; my $ssey = Invert($y0);
+
+  ## East
+
+  my $esex = $x1; my $esey = Invert($y0 + $ROUND_CORNER_CLIP);
+  my $enex = $x1; my $eney = Invert($y1 - $ROUND_CORNER_CLIP);
+
+  ## North
+
+  my $nnex = $x1 - $ROUND_CORNER_CLIP; my $nney = Invert($y1);
+  my $nnwx = $x0 + $ROUND_CORNER_CLIP; my $nnwy = Invert($y1);
+
+  ## West
+
+  my $wnwx = $x0; my $wnwy = Invert($y1 - $ROUND_CORNER_CLIP);
+  my $wswx = $x0; my $wswy = Invert($y0 + $ROUND_CORNER_CLIP);
+
+  ## SE corner
+
+  my $se_c1x = $ssex + $HALF_CORNER_CLIP; my $se_c1y = $ssey;
+  my $se_c2x = $esex;                     my $se_c2y = $esey + $HALF_CORNER_CLIP;
+
+  ## NE corner
+
+  my $ne_c1x = $enex;                     my $ne_c1y = $eney - $HALF_CORNER_CLIP;
+  my $ne_c2x = $nnex + $HALF_CORNER_CLIP; my $ne_c2y = $nney;
+
+  ## NW corner
+
+  my $nw_c1x = $nnwx - $HALF_CORNER_CLIP; my $nw_c1y = $nnwy;
+  my $nw_c2x = $wnwx;                     my $nw_c2y = $wnwy - $HALF_CORNER_CLIP;
+
+  ## SW corner
+
+  my $sw_c1x = $wswx;                     my $sw_c1y = $wswy + $HALF_CORNER_CLIP;
+  my $sw_c2x = $sswx - $HALF_CORNER_CLIP; my $sw_c2y = $sswy;
+
+  print $fh qq!
+  <Polyline Points="$sswx,$sswy $ssex,$ssey" FillRule="NonZero" Stroke="#$stroke"/>
+  <Path Stroke="#$stroke" Data="M$ssex $ssey\C$se_c1x $se_c1y $se_c2x $se_c2y $esex $esey"/>
+  <Polyline Points="$esex,$esey $enex,$eney" FillRule="NonZero" Stroke="#$stroke"/>
+  <Path Stroke="#$stroke" Data="M$enex $eney\C$ne_c1x $ne_c1y $ne_c2x $ne_c2y $nnex $nney"/>
+  <Polyline Points="$nnex,$nney $nnwx,$nnwy" FillRule="NonZero" Stroke="#$stroke"/>
+  <Path Stroke="#$stroke" Data="M$nnwx $nnwy\C$nw_c1x $nw_c1y $nw_c2x $nw_c2y $wnwx $wnwy"/>
+  <Polyline Points="$wnwx,$wnwy $wswx,$wswy" FillRule="NonZero" Stroke="#$stroke"/>
+  <Path Stroke="#$stroke" Data="M$wswx $wswy\C$sw_c1x $sw_c1y $sw_c2x $sw_c2y $sswx $sswy"/> 
+!;
+
+  if (defined $text) {
+    PrintTextBlock($fh, $meta_f, 10, $text, $attrs, $id, $center_x, $center_y, $delta, "mrecord", $x0, $x1, $y0, $y1);
+  }
+}
+
+######################################################################
+sub Invert {
+  my ($y) = @_;
+  return -1*$y;
+}
+
+######################################################################
+sub Invert_Y {
+  my ($xy) = @_;
+  my ($x, $y) = split(",", $xy);
+  return ("$x," . -1*$y);
+}
+
+######################################################################
+sub PrintTextBlock {
+  my ($fh, $meta_f, $font_size, $text, $attrs, $id, $x, $y, $delta, $type, $x1, $x2, $y1, $y2) = @_;
+
+  my $db = DBI->connect("DBI:Oracle:" . 'cgprod', 'web', 'readonly');
+  if (not $db or $db->err()) {
+    print STDERR "Cannot connect to " . 'pid' . "@" . 'cgprod' . "\n";
+    die;
+  }
+
+  my $font_family = "Arial";
+  my $sevenadjust = 5;
+  my $label = "";
+  my $prevlabel = "";
+  my $shape = "";
+  my $url = "";
+  my $atom_id = "";
+  my $mol_id = "";
+  my $molType = "";
+  my $state = "";
+  my $ptms = "";
+  my $macroprocess = "";
+  my $entityType = "none";
+  my $location = "";
+  my $uniprot = "";
+  my $entrez = "";
+  my $molType = "";
+  my $intType = "";
+  my $nolink = 1;
+  my $ltext = length($text);
+  my $tmove = 0;
+  my $entityVal = '';
+
+  for (my $count = 0; $count < $ltext; $count++) {
+    if ((substr($text,$count,1) eq '<') || (substr($text,$count,1) eq '>') || (substr($text,$count,1) eq '{') || (substr($text,$count,1) eq '}')) {
+      $x++; 
+    }
+  }
+  
+  $text =~ s/{//g;
+  $text =~ s/}//g;
+  $text =~ s/\\<//g;
+  $text =~ s/\\>//g;
+ 
+  $text =~ s/[\<]+//g;
+  $text =~ s/[\>]+//g;
+
+  my @entitysearch2 = split(/[\[]/,$text);
+  my $entityVal2 = $entitysearch2[0];
+
+  my @locationCheck = split(/[\[\]]/,$text);
+  
+  if ($#locationCheck > 1) {
+    $location = $locationCheck[1];
+    # print STDERR "Location: $location\n"; 
+    if ($location eq 'n') {
+      $location = 'nucleus';
+    }
+    if ($location eq 'cy') {
+      $location = 'cytoplasm';
+    }
+    if ($location eq 'm') {
+      $location = 'transmembrane';
+    }
+  }
+  my $statelen = length($entityVal2);
+  $state = '';
+  
+  if (substr($entityVal2,($statelen-1),1) eq '+') {
+    $state = 'active';
+  }
+  if (substr($entityVal2,($statelen-2),2) eq '+1') {
+    $state = 'active 1';
+  }
+  if (substr($entityVal2,($statelen-2),2) eq '+2') {
+    $state = 'active 2';
+  }
+  if (substr($entityVal2,($statelen-2),2) eq '+3') {
+    $state = 'active 3';
+  }
+
+  if (substr($entityVal2,($statelen-1),1) eq '-') {
+    $state = 'inactive';
+  }
+
+  if (substr($entityVal2,($statelen-2),2) eq '-1') {
+    $state = 'inactive 1';
+  }
+  if (substr($entityVal2,($statelen-2),2) eq '-2') {
+    $state = 'inactive 2';
+  }
+  if (substr($entityVal2,($statelen-2),2) eq '-3') {
+    $state = 'inactive 3';
+  }
+
+  if (defined $attrs->{label}) {
+    $label = $attrs->{label};
+  } 
+
+  if (defined $attrs->{shape}) {
+    $shape = $attrs->{shape};
+  }
+
+  if (defined $attrs->{URL}) {
+    $url = $attrs->{URL};
+    $nolink=0;
+  } 
+
+  # print STDERR "Id:  $id\n";
+  my @id_type = split(/[_]+/,$id);
+  # print STDERR "ID:  $id_type[1]\n";
+  if ($id_type[0] eq 'A') {
+    $atom_id = $id_type[1];
+    $entityType = "interaction";
+  }
+  
+  my @ptmtemp; 
+  if ($id_type[0] eq 'M') {
+    $mol_id = $id_type[1];
+    $entityType = "molecule";
+    @ptmtemp = split(/__/,$id);
+    $ptms = $ptmtemp[2];
+  
+    my $sql = qq!
+      select ext_mol_id
+      from pid.pw_ext_mol_id
+      where id_type in ('UP')
+      and mol_id = $mol_id
+    !;
+
+    my $stm = $db->prepare($sql);
+    if(not $stm) {
+      print STDERR "$sql\n";
+      print STDERR "$DBI::errstr\n";
+      print STDERR "prepare call failed\n";
+      die;
+    }
+ 
+    if(!$stm->execute()) {
+      print STDERR "$sql\n";
+      print STDERR "$DBI::errstr\n";
+      print STDERR "execute call failed\n";
+      die;
+    }
+  
+    while ((my $tempuniprot) = $stm->fetchrow_array()) {
+        $uniprot = $tempuniprot; 
+    }
+    $stm->finish();
+  
+    $sql = qq!
+      select
+        g.ll_id
+      from
+        cgap.ll_gene g,
+        pid.pw_ext_mol_id e,
+        pid.pw_mol m,
+        cgap.ll2sp s,
+        cgap.sp_primary p
+
+      where
+        m.mol_id = $mol_id 
+        and p.sp_id_or_secondary = e.ext_mol_id
+        and p.sp_id_or_secondary = s.sp_primary
+        and s.organism = 'Hs'
+        and s.ll_id = g.ll_id
+        and e.mol_id = m.mol_id
+        and m.basic_mol_type = 'PR'
+
+    !;
+
+    my $stm = $db->prepare($sql);
+    if(not $stm) {
+      print STDERR "$sql\n";
+      print STDERR "$DBI::errstr\n";
+      print STDERR "prepare call failed\n";
+      die;
+    }
+
+    if(!$stm->execute()) {
+      print STDERR "$sql\n";
+      print STDERR "$DBI::errstr\n";
+      print STDERR "execute call failed\n";
+      die;
+    }
+
+    while ((my $tempentrez) = $stm->fetchrow_array()) {
+        $entrez = $tempentrez;
+    }
+    $stm->finish();
+
+
+
+  }
+ 
+  if ($id_type[0] eq 'P') {
+    $macroprocess = $id_type[1];
+    $entityType = "macroprocess";
+  }
+
+  $label =~ s/\n//g;
+   
+  if ($font_family = "arial") {
+    $font_family = "Arial";
+  }
+  
+  if (defined $attrs->{fontsize}) {
+    $font_size = $attrs->{fontsize}
+  }
+  my $testlen = 0;
+
+  my @textarray; 
+  if ($shape eq "Mrecord") {
+    @textarray = split(/\|/, $text);
+  } else {
+    @textarray = split(/\\n/, $text);
+  }
+  
+  for (my $count = 0; $count < $#textarray; $count++) {
+    my $templen = length($textarray[$count]);
+    if ($templen > $testlen) {
+      $testlen = $templen;
+    }
+  }
+  
+  if ($testlen == 0) {
+    $testlen = length($text);
+  }
+  $x = $x - 2.5 * $testlen;
+ 
+  # my $y0 = $y;
+  my $start = 0;
+  if ($type eq 'mrecord') {
+    $start = 2;
+  }
+  my $y0 = $y + ((scalar(@textarray) - 1) * ($start + $TEXT_LINE_INC_Y{$font_size}));
+  $y0 = $y0 + 5; 
+  my $count = 0;
+  my $elts = 1;
+  if ($#textarray > 0) {
+    $elts = $#textarray;
+    if ($elts > 2) {
+      $y0 = $y0 - 2;
+    }
+  } 
+  
+  my $move_y = ($y2 - $y1)/($elts+1);
+  if ($move_y == 0) {
+    $move_y = ($delta + $TEXT_LINE_INC_Y{$font_size});
+  } 
+  $y1 = Invert($y1);
+  $y1 = $y1 - $move_y;
+  my $textCount = 0;
+  for my $t (@textarray) {
+    
+    my $ltext = length($t); 
+    for (my $count = 0; $count < $ltext; $count++) {
+      if ((substr($t,$count,1) eq '<') || (substr($t,$count,1) eq '>') || (substr($t,$count,1) eq '{') || (substr($t,$count,1) eq '}')) {
+        $x++;
+      }
+    }
+ 
+    $t =~ s/{//g;
+    $t =~ s/}//g;
+    $t =~ s/\\<//g;
+    $t =~ s/\\>//g;
+
+    $t =~ s/[\<]+//g;
+    $t =~ s/[\>]+//g;
+
+    # $t =~ s/[\\]+//g;
+    # $t =~ s/[\\]+//g;
+
+    $textCount++;
+    $y = Invert($y0);
+    my $foreground="#000000";
+
+    if ($type eq "box") {
+      $foreground="#ffffff";
+      $x = $x - $sevenadjust;
+      $sevenadjust = 0;
+    }
+    
+    if (($shape ne 'box') && ($shape ne 'parallelogram')) {
+      print $fh qq!
+      <HyperlinkButton  NavigateUri="http://pid.nci.nih.gov/search/MoleculePage?molid=$mol_id" >
+      <HyperlinkButton.Content>
+      !;
+    }
+  
+    if ($shape eq 'parallelogram') {
+      print $fh qq!
+      <HyperlinkButton  NavigateUri="http://pid.nci.nih.gov/search/intermediate_landing.shtml?molecule=$text" >
+      <HyperlinkButton.Content>
+      !;
+
+    }
+ 
+    if (($shape eq 'box') && ($nolink == 0)) {
+      $url =~s/svg/xaml/g;
+      $url =~s/pathway_landing/xaml_landing/g;
+      $url =~s/graphic/text/g;
+      $url =~s/search\///g;
+      $url =~s/source%3D5/source=NATURE/g;
+      
+      print $fh qq!
+      <HyperlinkButton  NavigateUri="http://pid-stage.nci.nih.gov$url" >
+      <HyperlinkButton.Content>
+      !;
+    }
+
+  # } 
+    print $fh "<Canvas Name=\"mol$molCount\"> \n";
+    $molCount++;
+
+    if ($shape eq 'Mrecord') {
+      my @tarray = split(/\\n/, $t);
+      my $tarraylength = $#tarray + 1;
+      if ($tarraylength > 3) {
+        $tarraylength--;
+        $tmove = 1;
+      }
+      $y = $y - (($tarraylength) * 8);
+      my $x_temp = $x1 + 3;
+      for (my $tcount = 0; $tcount <= $#tarray; $tcount++) {
+        $y = $y + 8;
+        if ($tcount == $#tarray) {
+          $y = $y - 1;
+        }
+
+        print $fh qq!
+<TextBlock Tag="$keyCount" FontSize="$font_size" FontFamily="$font_family" HorizontalAlignment="Center" Canvas.Left="$x_temp" Canvas.Top="$y" Foreground="$foreground">$tarray[$tcount]</TextBlock>
+        
+!;
+
+      }
+    } else {
+      # $x++;
+      if (($entityType ne 'none') && ($entityType ne 'macroprocess')) {    
+    print $fh qq!
+<TextBlock Tag="$keyCount" FontSize="$font_size" FontFamily="$font_family" HorizontalAlignment="Center" Canvas.Left="$x" Canvas.Top="$y" Foreground="$foreground">$t</TextBlock>
+!;
+      } else {
+        my $x_temp = $x;
+        if ($shape eq 'box') {
+          $x_temp = $x1 + 3;
+        }
+        print $fh qq!
+<TextBlock FontSize="$font_size" FontFamily="$font_family" HorizontalAlignment="Center" Canvas.Left="$x_temp" Canvas.Top="$y" Foreground="$foreground">$t</TextBlock>
+!;
+      }
+    }
+    if (($entityType ne 'none') && ($shape ne 'parallelogram')) {
+      my $locationState = 0;
+      $location = '';
+      for (my $count = 0; $count <= length($t); $count++) {
+        if (substr($t,$count,1) eq ']') {
+          $locationState = 0;
+        }
+ 
+        if ($locationState == 1) {
+          $location = $location . substr($t,$count,1);
+        } 
+        
+        if (substr($t,$count,1) eq '[') {
+          $locationState = 1;
+        }
+
+      }
+      if ($location eq 'n') {
+        $location = 'nucleus';
+      }
+      if ($location eq 'cy') {
+        $location = 'cytoplasm';
+      }
+      if ($location eq 'm') {
+        $location = 'transmembrane';
+      }
+      
+      my @entitysearch = split(/[\[]/,$t); 
+      my $entityVal = lc $entitysearch[0];
+
+      my $statelen = length($entityVal);
+      $state = '';
+      if (substr($entityVal,($statelen-1),1) eq '+') {
+        $state = 'active';
+        $entityVal = substr($entityVal,0,$statelen-1);
+      } 
+  
+      if (substr($entityVal2,($statelen-2),2) eq '+1') {
+        $state = 'active 1';
+      }
+      if (substr($entityVal2,($statelen-2),2) eq '+2') {
+        $state = 'active 2';
+      }
+      if (substr($entityVal2,($statelen-2),2) eq '+3') {
+        $state = 'active 3';
+      }
+
+      if (substr($entityVal,($statelen-1),1) eq '-') {
+        $state = 'inactive';
+        $entityVal = substr($entityVal,0,$statelen-1);
+      }
+
+      if (substr($entityVal2,($statelen-2),2) eq '-1') {
+        $state = 'inactive 1';
+      }
+      if (substr($entityVal2,($statelen-2),2) eq '-2') {
+        $state = 'inactive 2';
+      }
+      if (substr($entityVal2,($statelen-2),2) eq '-3') {
+        $state = 'inactive 3';
+      }
+      my $sql = qq!
+      select ext_mol_id, b.mol_id
+      from pid.pw_ext_mol_id a, pid.pw_mol_srch b
+      where id_type = 'UP'
+      and a.mol_id = b.mol_id
+      and b.map_name = '$entityVal'
+      and a.mol_id between 200000 and 299999
+      !;
+      
+      my $stm = $db->prepare($sql);
+      if(not $stm) {
+      print STDERR "$sql\n";
+      print STDERR "$DBI::errstr\n";
+      print STDERR "prepare call failed\n";
+      die;
+      }
+      if(!$stm->execute()) {
+        print STDERR "$sql\n";
+        print STDERR "$DBI::errstr\n";
+        print STDERR "execute call failed\n";
+        die;
+      }
+
+      my $inmol_id = 0;
+      while ((my $tempuniprot, my $tempmol_id) = $stm->fetchrow_array()) {
+        $uniprot = $tempuniprot;
+        $inmol_id = $tempmol_id
+      }
+      $stm->finish();
+  
+      $sql = qq!
+      select
+        g.ll_id
+      from
+        cgap.ll_gene g,
+        pid.pw_ext_mol_id e,
+        pid.pw_mol m,
+        cgap.ll2sp s,
+        cgap.sp_primary p
+
+      where
+        m.mol_id = $inmol_id
+        and p.sp_id_or_secondary = e.ext_mol_id
+        and p.sp_id_or_secondary = s.sp_primary
+        and s.organism = 'Hs'
+        and s.ll_id = g.ll_id
+        and e.mol_id = m.mol_id
+        and m.basic_mol_type = 'PR'
+
+    !;
+
+    my $stm = $db->prepare($sql);
+    if(not $stm) {
+      print STDERR "$sql\n";
+      print STDERR "$DBI::errstr\n";
+      print STDERR "prepare call failed\n";
+      die;
+    }
+
+    if(!$stm->execute()) {
+      print STDERR "$sql\n";
+      print STDERR "$DBI::errstr\n";
+      print STDERR "execute call failed\n";
+      die;
+    }
+
+    while ((my $tempentrez) = $stm->fetchrow_array()) {
+        $entrez = $tempentrez;
+    }
+    $stm->finish();
+ 
+      open(META_FILE, ">> $meta_f") || die "Cannot open $meta_f file\n";
+      print META_FILE "<pd:PIDEntity\n";
+      print META_FILE "x:Key=\"$keyCount\"\n";
+      print META_FILE "EntityName=\"$entityVal\"\n";
+      print META_FILE "EntitySearch=\"$entityVal,$uniprot,$entrez\"\n";
+      print META_FILE "EntityType=\"$entityType\"\n";
+      print META_FILE "MoleculeType=\"$molType\"\n";
+      print META_FILE "IntType=\"$intType\"\n";
+      print META_FILE "Location=\"$location\"\n";
+      print META_FILE "MacroProcess=\"$macroprocess\"\n";
+      print META_FILE "PTMs=\"$ptms\"\n";
+      print META_FILE "ActivityState=\"$state\"\n";
+      print META_FILE "MoleId=\"$inmol_id\"\n";
+      print META_FILE "AtomId=\"$atom_id\"\n";
+      print META_FILE "UniprotID=\"$uniprot\"\n";
+      print META_FILE "Entrez=\"$entrez\"\n";
+      print META_FILE "/>\n";
+      close(META_FILE);
+      $keyCount++;
+    }
+    print $fh "</Canvas>\n";
+    if (($shape ne 'box') && ($shape ne 'parallelogram')) {
+      print $fh qq!
+      </HyperlinkButton.Content>
+      </HyperlinkButton>
+      !;
+    }
+
+    if ($shape eq 'parallelogram') {
+      print $fh qq!
+      </HyperlinkButton.Content>
+      </HyperlinkButton>
+      !;
+    }
+
+    if (($shape eq 'box') && ($nolink == 0)) {
+      print $fh qq!
+      </HyperlinkButton.Content>
+      </HyperlinkButton>
+      !;
+    }
+
+    $y0 -= $move_y;
+    $y = Invert($y0);
+    
+    if (($type eq 'mrecord') && (($count) < $#textarray)) {
+      # print STDERR "<Polyline Points= $x1,$y1 $x2,$y1 FillRule=NonZero Stroke=#000000 />\n";
+      if ($tmove == 1) {
+        $y1 = $y1 + 10; 
+      } else {
+        $y1 = $y1 + 2;
+      }
+      print $fh qq!
+<Polyline Points="$x1,$y1 $x2,$y1 " FillRule="NonZero" Stroke="#000000" />
+!;
+    }
+    $count++;
+    $y1 = $y1 - $move_y;
+    # $y0 -= ($delta + $TEXT_LINE_INC_Y{$font_size}) / 2;
+  } 
+ 
+    if ($shape eq "parallelogram") {
+      $entityType = "macroprocess";
+    }
+    if ($shape eq "plaintext") {
+      $entityType = "molecule";
+      $molType = "protein";
+    }
+    if ($shape eq "Mrecord") {
+      $entityType = "molecule";
+      $molType = "complex";
+    }
+    if (($shape eq "diamond") || ($shape eq "doublecircle") || ($shape eq "triangle")) {
+      $prevlabel = 1;
+      $label = '';
+      $entityType = "interaction";
+      $intType = "transcription";
+      if ($shape eq "diamond") {
+        $intType = "modification";
+      }
+      if ($shape eq "triangle") {
+        $intType = "translocation";
+      }
+ 
+    }
+    $label =~ s/{//g;
+    $label =~ s/}//g;
+    $label =~ s/[\<]+//g;
+    $label =~ s/[\>]+//g;
+    $label =~ s/[\\]+//g;
+    $label =~ s/[\\]+//g;
+
+    if (($prevlabel ne $label) && ($entityType ne "interaction") && ($textCount > 1) && ($entityType ne 'none')) {
+       
+      open(META_FILE, ">> $meta_f") || die "Cannot open $meta_f file\n";
+      print META_FILE "<pd:PIDEntity\n";
+      print META_FILE "x:Key=\"$keyCount\"\n";
+      print META_FILE "EntityName=\"$entityVal\"\n";
+      print META_FILE "EntitySearch=\"$entityVal,$uniprot,$entrez\"\n";
+      print META_FILE "EntityType=\"$entityType\"\n";
+      print META_FILE "MoleculeType=\"$molType\"\n";
+      print META_FILE "IntType=\"$intType\"\n";
+      print META_FILE "Location=\"$location\"\n";
+      print META_FILE "MacroProcess=\"$macroprocess\"\n";
+      print META_FILE "PTMs=\"$ptms\"\n";
+      print META_FILE "ActivityState=\"$state\"\n";
+      print META_FILE "MoleId=\"$mol_id\"\n";
+      print META_FILE "AtomId=\"$atom_id\"\n";
+      print META_FILE "UniprotID=\"$uniprot\"\n";
+      print META_FILE "Entrez=\"$entrez\"\n";
+      print META_FILE "/>\n";
+      close(META_FILE);
+      $keyCount++;
+      $prevlabel = $label;
+    } 
+    if ($entityType eq 'interaction') {
+      print META_FILE "Interaction\n"; 
+      open(META_FILE, ">> $meta_f") || die "Cannot open $meta_f file\n";
+      print META_FILE "<pd:PIDEntity\n";
+      print META_FILE "x:Key=\"$keyCount\"\n";
+      print META_FILE "EntityName=\"$entityVal\"\n";
+      print META_FILE "EntitySearch=\"$entityVal,$uniprot,$entrez\"\n";
+      print META_FILE "EntityType=\"$entityType\"\n";
+      print META_FILE "MoleculeType=\"$molType\"\n";
+      print META_FILE "IntType=\"$intType\"\n";
+      print META_FILE "Location=\"$location\"\n";
+      print META_FILE "MacroProcess=\"$macroprocess\"\n";
+      print META_FILE "PTMs=\"$ptms\"\n";
+      print META_FILE "ActivityState=\"$state\"\n";
+      print META_FILE "MoleId=\"$mol_id\"\n";
+      print META_FILE "AtomId=\"$atom_id\"\n";
+      print META_FILE "UniprotID=\"$uniprot\"\n";
+      print META_FILE "Entrez=\"$entrez\"\n";
+      print META_FILE "/>\n";
+      close(META_FILE);
+      $keyCount++;
+    }
+}
+
+######################################################################
+sub PrintEdge {
+  my ($fh, $decl, $meta_f) = @_;
+  
+  my $attrs     = GetAttrs($decl);
+  my $pos       = $attrs->{pos};
+  my $stroke    = Color2Hex($attrs->{color});
+  my $text      = $attrs->{label};
+  my $id        = GetId($decl);
+
+  my @dot_coords = split(/ +/, $pos);
+  my @xaml_coords;
+
+  my $path_data;
+  my ($arrow, $end);
+  if ($dot_coords[0] =~ /^(e|s),([0-9,]+)/) {
+    my $dummy = shift @dot_coords;
+    $dummy =~ /^(e|s),([0-9,]+)/;
+    ($end, $arrow) = ($1, $2);
+  }
+  for my $xy (@dot_coords) {
+    push @xaml_coords, Invert_Y($xy);
+  }
+  my $M      = shift @xaml_coords;
+  $path_data = "M$M" . "C". join(" ", @xaml_coords);
+  print $fh qq!
+  <Path Stroke="#$stroke" Data="$path_data"/>
+!;
+  if ($arrow) {
+    my $tip = $arrow;
+    my $base;
+    if ($end eq "e") {
+      $base = $dot_coords[$#dot_coords];
+    } elsif ($end eq "s") {
+      $base = $dot_coords[0];
+    }
+    my @arrow_coords;
+    for my $xy (@{ PlaceArrow($stroke, split(",", $base), split(",", $tip)) }) {
+      push @arrow_coords, Invert_Y($xy);
+    }
+    my $point_data = join(" ", @arrow_coords);
+    print $fh qq!
+  <Polygon Points="$point_data" FillRule="NonZero" Fill="#$stroke" Stroke="#$stroke"/>
+!;
+  }
+  if (defined $text) {
+    PrintTextBlock($fh, $meta_f, 10, $attrs, $text, $id);
+  }
+}
+
+######################################################################
+sub PrintNode {
+  my ($fh, $decl, $meta_f) = @_;
+
+  my $attrs     = GetAttrs($decl);
+  my $shape     = $attrs->{shape};
+  my $url       = $attrs->{URL};
+  my $pos       = $attrs->{pos};
+  my $height    = $PIX_PER_INCH*($attrs->{height});
+  my $width     = $PIX_PER_INCH*($attrs->{width});
+  my $id        = GetId($decl);
+  my @dot_coords = split(/ +/, $pos);
+
+  my ($x, $y) = split(",", $dot_coords[0]);
+
+  if ($shape eq "plaintext") {
+    PlainText($fh, $meta_f, $x, $y, $id, $width, $height, $attrs);
+  } elsif ($shape eq "box") {
+    Box($fh, $meta_f, $x, $y, $id, $width, $height, $attrs);
+  } elsif ($shape eq "diamond") {
+    Diamond($fh, $meta_f, $x, $y, $id, $width, $height, $attrs);
+  } elsif ($shape eq "triangle") {
+    Triangle($fh, $meta_f, $x, $y, $id, $width, $height, $attrs);
+  } elsif ($shape eq "parallelogram") {
+    Parallelogram($fh, $meta_f, $x, $y, $id, $width, $height, $attrs);
+  } elsif ($shape eq "doublecircle") {
+    Circle($fh, $meta_f, $x, $y, $id, $attrs);
+  } elsif ($shape eq "Mrecord") {
+    Mrecord($fh, $meta_f, $x, $y, $id, $width, $height, $attrs);
+  }
+}
+
+######################################################################
+sub PrintDecl {
+  my ($fh, $decl, $meta_f) = @_;
+
+  my $decl_type = GetDeclType($decl);
+  $canvas_n++;
+
+  my $id        = GetId($decl);
+
+
+
+  if ($decl_type eq "node") {
+    my $attrs     = GetAttrs($decl);
+    my $shape     = $attrs->{shape};
+    my $label     = $attrs->{label};
+    my $url       = $attrs->{URL};
+    $_ = $label; 
+    $label =~ s/[\<]//g;
+    $label =~ s/[\>]//g;
+    if ($shape ne 'parallelogram') { 
+    }
+    print $fh qq!
+    <Canvas Name="can$canvas_n"> 
+    !; 
+    PrintNode($fh, $decl, $meta_f);
+    print $fh qq!
+    </Canvas>
+    !;
+    if ($shape ne 'parallelogram') {
+    }
+  } elsif ($decl_type eq "edge") {
+    print $fh qq!
+    <Canvas Name="can$canvas_n">
+    !; 
+    PrintEdge($fh, $decl, $meta_f);
+      print $fh qq!
+    </Canvas>
+!;
+
+  }
+
+}
+
+######################################################################
+sub PrintDecls {
+  my ($fh, $decls, $meta_f) = @_;
+
+  for my $decl (@{ $decls }) {
+    PrintDecl($fh, $decl, $meta_f);
+  }
+}
+
+#######################################################################
+sub PrintHeader {
+  my ($fh) = @_;
+  # print $fh "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+}
+
+######################################################################
+sub PrintMainCanvas {
+  my ($fh, $metafile, $root, $x0, $x1, $y0, $y1) = @_;
+
+  my $height = $y1 - $y0;
+  my $width  = $x1 - $x0;
+
+  my $offset = 4;
+  my @coords;
+
+  
+  for my $xy (
+      ($x0 - $offset) . "," . ($y0 - $offset),
+      ($x0 - $offset) . "," . ($y1 + $offset),
+      ($x1 + $offset) . "," . ($y1 + $offset),
+      ($x1 + $offset) . "," . ($y0 - $offset),
+      ($x0 - $offset) . "," . ($y0 - $offset)
+    ) {
+    push @coords, Invert_Y($xy);
+  }
+  my $points = join(" ", @coords);
+  print $fh qq!
+<Canvas xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:pd="clr-namespace:PathwayViewer;assembly=PathwayViewer" Width="$width" Height="$height">
+  <Canvas.Resources >
+  
+  </Canvas.Resources> 
+  <Canvas.RenderTransform>
+    <TranslateTransform X="0" Y="$height"></TranslateTransform>
+  </Canvas.RenderTransform>
+  <Canvas Name="graph0">
+    <Canvas>
+      <Canvas.RenderTransform>
+        <TransformGroup></TransformGroup>
+      </Canvas.RenderTransform>
+      <Polygon Points="$points" FillRule="NonZero" Fill="#ffffff" Stroke="#ffffff"/>
+  
+!;
+  PrintDecls($fh, Decls($root), $metafile);
+  print $fh qq!
+    </Canvas>
+  </Canvas>
+</Canvas>
+!;
+
+}
+
+######################################################################
+sub PrintXAML {
+  my ($fh, $root, $metafile, $x0, $x1, $y0, $y1) = @_;
+
+  PrintHeader($fh);
+  PrintMainCanvas($fh, $metafile, $root, $x0, $x1, $y0, $y1);
+
+}
 
 ######################################################################
 1;

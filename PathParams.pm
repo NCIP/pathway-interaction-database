@@ -90,9 +90,12 @@ my %printopts = (
     "sql"      => 1,
     "table"    => 1,
     "xml"      => 1,
+    "xaml"     => 1,
     "biopax"   => 1,
     "sbml"     => 1,
-    "dot"      => 1
+    "dot"      => 1,
+    "bp3"      => 1,
+    "rssm"     => 1
 );
 
 ######################################################################
@@ -379,6 +382,8 @@ sub DoInclude {
     $self->{include_complex_uses} = 1;
   } elsif ($what eq "family_uses") {
     $self->{include_family_uses} = 1;
+  } elsif ($what eq "transcription") {
+    $self->{transcription} = 1;
   } else {
     $self->AddError("Illegal option $what for include");
     return;
@@ -412,7 +417,7 @@ sub  MouseTrap {
   }
 
   my ($db_inst, $db_user, $db_pass, $schema) =
-      ("cgprod", "web", "readonly", "cgap");
+      ("cgdev", "web", "readonly", "cgap");
   my ($db, $sql, $stm, $i, $list);
   my ($hs_locus, $mm_locus);
 
@@ -1339,7 +1344,7 @@ sub CheckParams {
     return;
   }
   my $schema = $self->{db}{schema};
-
+  my $transcription = $self->{transcription};
   my $molcheck = 0;
   my $molecule = $self->{molecule};
   # $molcheck = Scan($self->{mol_name});

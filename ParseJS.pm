@@ -69,7 +69,8 @@ my %interaction_types = (
   "NoReaction"        => "reaction",
   "Pathway"           => "pathway",
   "NoPathway"         => "pathway",
-  "Subnet"            => "subnet"
+  "Subnet"            => "subnet",
+  "NoSubnet"          => "subnet"
 );
 
 my %evidence_ops = (
@@ -1410,7 +1411,7 @@ sub DoShownamed {
   } elsif ($op eq "NoModification" || $op eq "NoTranscription" || $op eq "NoTranslocation") {
   } elsif ($op eq "Associates") {
   } elsif ($op eq "MacroProcess" || $op eq "NoMacroProcess") {
-  } elsif ($op eq "Pathway" || $op eq "NoPathway" || $op eq "Subnet") {
+  } elsif ($op eq "Pathway" || $op eq "NoPathway" || $op eq "Subnet" || $op eq "NoSubnet") {
 ## Subnet and Pathway
 ## Apparently, these have to have an agent or input molecule. So the
 ## name and alt id refer to this molecule. Perhaps the identity of the

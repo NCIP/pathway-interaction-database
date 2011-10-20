@@ -193,18 +193,31 @@ sub handle_end {
     }
     undef %atom_labels;
 
-  } elsif ($elem eq "Condition") {
+  } elsif ($elem eq "PositiveCondition") {
     my $cond_type = $$attr_top{condition_type};
     my $cond_value = $lv->StringToLabelValue("process-type", $cond_type);
     if ($cond_value == 0) {
       $cond_value = $lv->StringToLabelValue("function", $cond_type);
     }
     if ($cond_value == 0) {
-      print STDERR "no label value for condition $cond_type\n";
+      print STDERR "no label value for positivecondition $cond_type\n";
     } else {
       $pw->AddAtomCondition($id_def{Interaction}, $cond_value);
     }
-  } elsif ($elem eq "RoleType") {
+  } elsif ($elem eq "NegativeCondition") {
+    my $cond_type = $$attr_top{condition_type};
+    my $cond_value = $lv->StringToLabelValue("process-type", $cond_type);
+    if ($cond_value == 0) {
+      $cond_value = $lv->StringToLabelValue("function", $cond_type);
+    }
+    if ($cond_value == 0) {
+      print STDERR "no label value for negativecondition $cond_type\n";
+    } else {
+      $pw->AddAtomNegativeCondition($id_def{Interaction}, $cond_value);
+    }
+ 
+  }
+    elsif ($elem eq "RoleType") {
 
   } elsif ($elem eq "InteractionType") {
 

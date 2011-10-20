@@ -64,6 +64,7 @@ sub CleanString {
 
   $s =~ s/<//g;
   $s =~ s/>//g;
+  $s =~ s/\&/\&#038;/g;
   while ($s =~ /([\"\'\200-\377])/) {
     my $c = $1;
     my $x = sprintf("&#x%x;", ord($c));
