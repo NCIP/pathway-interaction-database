@@ -1,6 +1,6 @@
 Welcome to the Pathway Interaction Database Project!
 
-The Pathway Interaction Database is a highly-structured, curated collection of information about known bio-molecular interactions and key cellular processes assembled into signaling pathways.
+Pathway Interaction Database is a highly-structured, curated collection of information about known bio-molecular interactions and key cellular processes assembled into signaling pathways.
 
 Pathway Interaction Database is distributed under the BSD 3-Clause License. Please see the NOTICE and LICENSE files for details.
 
