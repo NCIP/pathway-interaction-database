@@ -59,7 +59,7 @@ Submitting Changes
 
 * Submit a pull request to the repository in the NCIP organization.
 
-.. _`BSD-3-Clause License`: http://opensource.org/licenses/BSD-3-Clause
+.. _`BSD 3-Clause License`: http://opensource.org/licenses/BSD-3-Clause
 
 --------------------
 Additional Resources
