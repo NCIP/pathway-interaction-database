@@ -50,7 +50,7 @@ Making Changes
 Submitting Changes
 ------------------
 
-* In general, we require that the OSI-approved `BSD-3-Clause License`_
+* In general, we require that the OSI-approved `BSD 3-Clause License`_
   be applied to code contributions.  There may be cases, however, that
   warrant the use of an alternate OSI-approved license and we will
   evaluate this situations case-by-case.
