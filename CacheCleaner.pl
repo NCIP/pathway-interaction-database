@@ -1,5 +1,12 @@
 #!/usr/local/bin/perl
 
+
+# Copyright SRA International
+#
+# Distributed under the OSI-approved BSD 3-Clause License.
+# See http://ncip.github.com/pathway-interaction-database/LICENSE.txt for details.
+
+
 use strict;
 use constant HOURS_TO_LIVE => 5;
 use constant HOURS_TO_LIVE_FOR_GENOMICS => 148;

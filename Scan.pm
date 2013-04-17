@@ -2,6 +2,13 @@
 # Scan.pm
 ######################################################################
 
+
+# Copyright SRA International
+#
+# Distributed under the OSI-approved BSD 3-Clause License.
+# See http://ncip.github.com/pathway-interaction-database/LICENSE.txt for details.
+
+
 use Exporter ();
 @ISA = qw(Exporter);
 @EXPORT = qw (

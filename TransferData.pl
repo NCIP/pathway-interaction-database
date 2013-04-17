@@ -1,5 +1,12 @@
 #!/usr/local/bin/perl
 
+
+# Copyright SRA International
+#
+# Distributed under the OSI-approved BSD 3-Clause License.
+# See http://ncip.github.com/pathway-interaction-database/LICENSE.txt for details.
+
+
 my $src       = "/local/content/biopaths/PathwaysNature/files";
 my $dest      = "/share/content/PID/data/transfer";
 my $last_dest = "/share/content/PID/data/last_transfer";
