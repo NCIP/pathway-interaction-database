@@ -1,6 +1,6 @@
 Welcome to the Pathway Interaction Database Project!
 
-The Pathway Interaction Database(PID) is software supporting the access and display of information about 
+The Pathway Interaction Database(PID) is a software supporting the access and display of information about 
 bio-molecular interactions and cellular processes assembled into signaling pathways. 
 This software is developed in Perl.
 
