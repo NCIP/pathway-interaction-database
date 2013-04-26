@@ -1,4 +1,5 @@
 Welcome to the Pathway Interaction Database Project!
+=====================================================
 
 The Pathway Interaction Database(PID) is software supporting the access and display of information about 
 bio-molecular interactions and cellular processes assembled into signaling pathways. 
@@ -13,5 +14,6 @@ You will find more details about Pathway Interaction Database in the following l
  * [Documentation](https://gforge.nci.nih.gov/frs/?group_id=223&release_id=4151)
  * [NCI Hosted Instance](http://pid.nci.nih.gov)
 
+Please join us in further developing and improving Pathway Interaction Database.
  
  
