@@ -2,13 +2,6 @@
 ## Parameters for back-end data servers for CGAP
 ##
 
-
-# Copyright SRA International
-#
-# Distributed under the OSI-approved BSD 3-Clause License.
-# See http://ncip.github.com/pathway-interaction-database/LICENSE.txt for details.
-
-
 package PIDConfig;
 require Exporter;
  
@@ -89,17 +82,8 @@ require Exporter;
 
 use DB_SCHEMAConfig;
 
-if (-d "/app/oracle/product/dbhome/current") {
-  $ENV{'ORACLE_HOME'} = "/app/oracle/product/dbhome/current";
-} elsif (-d "/app/oracle/product/8.1.7") {
-  $ENV{'ORACLE_HOME'} = "/app/oracle/product/8.1.7";
-} elsif (-d "/app/oracle/product/8.1.6") {
-  $ENV{'ORACLE_HOME'} = "/app/oracle/product/8.1.6";
-} elsif (-d "/app/oracle/product/10gClient") {
-  $ENV{'ORACLE_HOME'} = "/app/oracle/product/10gClient";
-}
-$ENV{'PATH'} = "$ENV{'PATH'}:/app/oracle/product/10gClient:/app/oracle/product/10gClient/lib:/app/oracle/product/10gClient/instantclient:/app/oracle/product/10gClient/bin";
-$ENV{'LD_LIBRARY_PATH'} = "/app/oracle/product/10gClient/lib";
+  $ENV{'ORACLE_HOME'} = "/oracle/productt";
+
 
 ## Global variables for database schema names
 
@@ -108,18 +92,14 @@ $CGAP_SCHEMA2 = "";
 $CMAP_SCHEMA = "cmap";
 $RFLP_SCHEMA = "rflp";
 
-use constant DB_USER         => "web";
-use constant DB_PASS         => "readonly";
-use constant DB_INSTANCE     => "cgprod";
-## use constant DB_INSTANCE     => "lpg";
+use constant DB_USER         => "userid";
+use constant DB_PASS         => "password";
+use constant DB_INSTANCE     => "db";
 
-##use constant GENE_SERVER_PORT        => "8001";
-##use constant LIBRARY_SERVER_PORT     => "8004";
 use constant GXS_SERVER_PORT         => "8005";
 
 use constant GENE_SERVER_PORT        => "0000";
 use constant LIBRARY_SERVER_PORT     => "0000";
-##use constant GXS_SERVER_PORT         => "0000";
 
 use constant CYT_SERVER_PORT         => "8002";
 use constant BLAST_QUERY_SERVER_PORT => "8003";
@@ -127,13 +107,9 @@ use constant GL_SERVER_PORT          => "8006";
 use constant PATHWAY_SERVER_PORT     => "8007";
 use constant MICROARRAY_SERVER_PORT  => "8008";
 
-## use constant INIT_DATA_HOME          => "/share/content/CGAP/data/";
-## use constant KEGG_DATA_HOME          => "/share/content/CGAP/data/";
-## use constant INIT_SAGE_DATA_HOME     => "/share/content/CGAP/data/";
-
-use constant INIT_DATA_HOME          => "/cgap/schaefec/current/CGAP/data/";
-use constant KEGG_DATA_HOME          => "/cgap/schaefec/current/CGAP/data/";
-use constant INIT_SAGE_DATA_HOME     => "/cgap/schaefec/current/SAGE/data/";
+use constant INIT_DATA_HOME          => "/CGAP/data/";
+use constant KEGG_DATA_HOME          => "/CGAP/data/";
+use constant INIT_SAGE_DATA_HOME     => "/SAGE/data/";
 
 use constant HS_GL_DATA              => INIT_DATA_HOME . "Hs_gl.dat";
 use constant MM_GL_DATA              => INIT_DATA_HOME . "Mm_gl.dat";
@@ -191,21 +167,11 @@ use constant IMG_DIR  => "/images";
 ##use constant BASE     => "/CGAP";
 ##use constant IMG_DIR  => "/CGAP/images";
 
-use constant KEGG_DIR => "http://cgap-prot.nci.nih.gov/KEGG";
+use constant KEGG_DIR => "/KEGG";
 
 use constant SAFE_IPS =>
   "127.0.0.1," .           ## localhost
-  "128.231.202.171," .     ## lpgfs
-  "137.187.66.221,"  .     ## lpgfs new
-  "156.40.133.243,"  .     ## cbiodev24
-  "137.187.66.205,"  .     ## cbiodev104
-  "137.187.66.207,"  .     ## cbioapp101
-  "137.187.66.209,"  .     ## cbioapp102
-  "137.187.66.195,"  .     ## cbioapp104
-  "137.187.66.222,"  .     ## ncicbstarfish
-  "137.187.67.76,"   .     ## ncicbstarfish
-  "137.187.67.77,"   .     ## ncicbstarfish
-  "137.187.67.78" ;        ## ncicbstarfish
+   "xxx.xxx.xxx.xxx" ;        ## 
 
 ######################################################################
 1;
